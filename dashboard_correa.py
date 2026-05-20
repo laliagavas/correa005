@@ -68,7 +68,7 @@ def calcular_metraje(desde, hasta, nivel):
         return estaciones_afectadas * 1.5
 
 # --- INTERFAZ DEL DASHBOARD ---
-st.title("📊 Sistema de Monitoreo de Convergencia Central - CV005")
+st.title("📊 Sistema de Monitoreo - CV005")
 st.markdown("### TP1 (3823) ➡️ 2000 ⬅️ EM (1)")
 st.write("Datos en tiempo real TP1 y EM.")
 
