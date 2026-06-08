@@ -67,7 +67,7 @@ def get_base64_img(file):
 img_base64 = get_base64_img('correa.png')
 
 # 6. INTERFAZ MULTI-PESTAÑA
-st.title("📊 Central de Monitoreo de Convergencia")
+st.title("📊 Sistema de Monitoreo de Correas con Fibra Optica")
 
 tabs = st.tabs(list(CONFIG_CORREAS.keys()))
 
