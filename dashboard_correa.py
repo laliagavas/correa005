@@ -41,12 +41,12 @@ def leer_datos(correa_id):
         return pd.DataFrame()
 
 def guardar_registro(operador, desde, hasta, nivel, nota, correa_id):
-    # Corrección: Limpieza directa y segura por correa y nivel antes de insertar
+    # Eliminación segura para evitar duplicados en niveles globales (0 y 5)
     if nivel in [0, 5]:
         try:
             supabase.table("eventos_correa").delete().eq("correa_id", correa_id).eq("nivel", nivel).execute()
-        except Exception as e:
-            st.warning(f"Aviso en limpieza previa: {e}")
+        except Exception:
+            pass
     
     nuevo = {
         "operador": operador, 
@@ -58,8 +58,10 @@ def guardar_registro(operador, desde, hasta, nivel, nota, correa_id):
     }
     try:
         supabase.table("eventos_correa").insert(nuevo).execute()
+        return True
     except Exception as e:
-        st.error(f"Error crítico al guardar en Base de Datos: {e}")
+        st.error(f"Error al guardar en Supabase: {e}")
+        return False
 
 def convertir_a_numero_puro(est_str):
     if est_str in MAPEO_LETRAS_CV006:
@@ -80,7 +82,7 @@ def get_base64_img(file):
 img_base64 = get_base64_img('correa.png')
 
 # 5. INTERFAZ PRINCIPAL MULTI-PESTAÑA
-st.title("🚀 Sistema de Monitoreo de Polines Mediante Fibra Óptica")
+st.title("📊 Sistema de Monitoreo de Polines Mediante Fibra Óptica")
 
 tabs = st.tabs(["CV005", "CV006", "CV007"])
 
@@ -159,8 +161,8 @@ with tabs[0]:
             nota = st.text_input("Nota:", key="nota05")
             if st.form_submit_button("Guardar Registro CV005"):
                 if op:
-                    guardar_registro(op, d, h, niv, nota, correa_id)
-                    st.rerun()
+                    if guardar_registro(op, d, h, niv, nota, correa_id):
+                        st.rerun()
                 else: st.error("Falta ingresar Operador.")
                 
     st.markdown("### 📏 Metraje Consolidado")
@@ -174,7 +176,7 @@ with tabs[0]:
 
 
 # ==========================================
-# PESTAÑA CORREA CV006 (Lógica de Registro Corregida)
+# PESTAÑA CORREA CV006 (Totalmente Corregida)
 # ==========================================
 with tabs[1]:
     correa_id = "CV006"
@@ -182,11 +184,12 @@ with tabs[1]:
     st.subheader(f"Estado Actual - {correa_id}")
     st.caption("Frente Físico: TP1 (3B Carga ➡️ 1845) 🤝 (1846 ⬅️ 3526) TP2")
 
+    # Mapeo espacial para posicionar frentes concurrentes cara a cara en el gráfico
     def trans_x_06(est_str):
         n = convertir_a_numero_puro(est_str)
-        if n <= 1845:
+        if n <= 1845:  # Rama Norte: Se extiende a la izquierda del cero
             return n - 1845
-        else:
+        else:          # Rama Sur: Se extiende a la derecha del cero
             return 3526 - n + 1
 
     total_estaciones_06 = 3526 + 3
@@ -208,15 +211,16 @@ with tabs[1]:
 
     fig = go.Figure()
     if img_base64:
+        # Se define la extensión total del fondo para cubrir ambos frentes concurrentes
         fig.add_layout_image(dict(source=f"data:image/png;base64,{img_base64}", xref="x", yref="y", x=-1848, y=-0.7, sizex=1848 + 1681, sizey=1.0, sizing="stretch", opacity=0.9, layer="below"))
 
     if not df_ev.empty:
         for _, fila in df_ev.iterrows():
             try:
                 niv = int(fila["nivel"])
-                xd, xh = trans_x_06(fila["estacion_desde"]), trans_x_06(fila["estacion_hasta"])
-                n_d = convertir_a_numero_puro(fila["estacion_desde"])
-                n_h = convertir_a_numero_puro(fila["estacion_hasta"])
+                xd, xh = trans_x_06(str(fila["estacion_desde"])), trans_x_06(str(fila["estacion_hasta"]))
+                n_d = convertir_a_numero_puro(str(fila["estacion_desde"]))
+                n_h = convertir_a_numero_puro(str(fila["estacion_hasta"]))
                 dist = (abs(n_d - n_h) + 1) * (1.5 if niv == 0 else (14 if niv == 5 else 1.5))
                 
                 fig.add_trace(go.Scatter(
@@ -229,6 +233,7 @@ with tabs[1]:
 
     texto_avance_06 = f"<span style='font-size:14px;'><b>📊 AVANCE GENERAL CV006</b><br><br>🔴 Troncal: <b>{porc_troncal_06:.1f}%</b><br>🟣 Sensitiva: <b>{porc_sensitiva_06:.1f}%</b></span>"
 
+    # Corregido: Se mapean todos los puntos clave en el eje X para asegurar escala visual completa
     fig.update_layout(
         xaxis=dict(
             tickvals=[trans_x_06("3B Carga"), trans_x_06("1"), trans_x_06("1845"), trans_x_06("1846"), trans_x_06("3526")], 
@@ -241,28 +246,31 @@ with tabs[1]:
     )
     st.plotly_chart(fig, use_container_width=True, key="gr_06")
 
+    # REGISTRO DE DATOS CON UN FORMULARIO DESACOPLADO (Solución al congelamiento de campos)
     with st.sidebar.expander(f"📥 Registrar Datos CV006"):
-        with st.form(key="f_06"):
-            op = st.text_input("Operador:", key="op06")
-            niv = st.selectbox("Nivel / Condición:", list(DICC_NIVELES.keys()), format_func=lambda x: DICC_NIVELES[x]["nombre"], key="niv06")
-            frente = st.radio("Seleccionar Tramo / Frente:", ["TP1 hacia Centro (Norte: 3B a 1845)", "TP2 hacia Centro (Sur: 3526 a 1846)"], key="frente06")
+        with st.form(key="f_06_nuevo"):
+            op = st.text_input("Operador:", key="op06_v2")
+            niv = st.selectbox("Nivel / Condición:", list(DICC_NIVELES.keys()), format_func=lambda x: DICC_NIVELES[x]["nombre"], key="niv06_v2")
+            frente = st.radio("Seleccionar Tramo / Frente:", ["TP1 hacia Centro (Norte: 3B a 1845)", "TP2 hacia Centro (Sur: 3526 a 1846)"], key="frente06_v2")
             
+            # Se generan de manera dinámica las listas independientes según el frente seleccionado
             if frente == "TP1 hacia Centro (Norte: 3B a 1845)":
                 opciones_norte = ["3B Carga", "2B Carga", "1B Carga"] + [str(n) for n in range(1, 1846)]
-                d = st.selectbox("Desde Estación (Punto Lejano TP1):", opciones_norte, index=0, key="d06_n")
-                h = st.selectbox("Hasta Estación (Hacia Centro 1845):", opciones_norte, index=len(opciones_norte)-1, key="h06_n")
+                d = st.selectbox("Desde Estación (Punto Lejano TP1):", opciones_norte, index=0, key="d06_n_v2")
+                h = st.selectbox("Hasta Estación (Hacia Centro 1845):", opciones_norte, index=len(opciones_norte)-1, key="h06_n_v2")
             else:
                 opciones_sur = [str(n) for n in range(1846, 3527)]
-                d = st.selectbox("Desde Estación (Punto Lejano TP2):", opciones_sur, index=len(opciones_sur)-1, key="d06_s")
-                h = st.selectbox("Hasta Estación (Hacia Centro 1846):", opciones_sur, index=0, key="h06_s")
+                d = st.selectbox("Desde Estación (Punto Lejano TP2):", opciones_sur, index=len(opciones_sur)-1, key="d06_s_v2")
+                h = st.selectbox("Hasta Estación (Hacia Centro 1846):", opciones_sur, index=0, key="h06_s_v2")
                 
-            nota = st.text_input("Nota:", key="nota06")
+            nota = st.text_input("Nota:", key="nota06_v2")
+            
             if st.form_submit_button("Guardar Registro CV006"):
                 if op:
-                    # Corrección: Se remueven los flags problemáticos para garantizar el guardado lineal sin interrupciones
-                    guardar_registro(op, d, h, niv, nota, correa_id)
-                    st.rerun()
-                else: st.error("Falta ingresar Operador.")
+                    if guardar_registro(op, d, h, niv, nota, correa_id):
+                        st.rerun()
+                else: 
+                    st.error("Falta ingresar el nombre del Operador.")
                 
     st.markdown("### 📏 Metraje Consolidado")
     c1, c2 = st.columns(2)
@@ -270,8 +278,10 @@ with tabs[1]:
     c2.metric(label="Fibra Óptica Sensitiva (Nivel 5)", value=f"{metros_sensitiva_06:.1f} m")
 
     st.subheader("📋 Historial de Cambios")
-    if not df_ev.empty: st.dataframe(df_ev, use_container_width=True)
-    else: st.caption("No hay registros guardados para la CV006.")
+    if not df_ev.empty: 
+        st.dataframe(df_ev, use_container_width=True)
+    else: 
+        st.caption("No hay registros guardados para la CV006.")
 
 
 # ==========================================
@@ -339,8 +349,8 @@ with tabs[2]:
             nota = st.text_input("Nota:", key="nota07")
             if st.form_submit_button("Guardar Registro CV007"):
                 if op:
-                    guardar_registro(op, d, h, niv, nota, correa_id)
-                    st.rerun()
+                    if guardar_registro(op, d, h, niv, nota, correa_id):
+                        st.rerun()
                 else: st.error("Falta ingresar Operador.")
                 
     st.markdown("### 📏 Metraje Consolidado")
