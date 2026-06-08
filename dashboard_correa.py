@@ -20,12 +20,11 @@ try:
 except Exception:
     st.error("Error de conexión con la base de datos Supabase.")
 
-# 3. CONFIGURACIÓN DINÁMICA DE LAS CORREAS
-# Ajusta aquí los números reales de cada una si son distintos
+# 3. CONFIGURACIÓN FÍSICA REAL DE LAS CORREAS
 CONFIG_CORREAS = {
-    "CV005": {"inicio": 3823, "centro": 2000, "fin": 1},
-    "CV006": {"inicio": 3823, "centro": 2000, "fin": 1},
-    "CV007": {"inicio": 1200, "centro": 600, "fin": 1}, # Ejemplo de correa corta
+    "CV005": {"inicio": 3823, "centro": 2000, "fin": 1, "lbl_inicio": "TP1", "lbl_fin": "EM"},
+    "CV006": {"inicio": 3823, "centro": 2000, "fin": 1, "lbl_inicio": "TP1", "lbl_fin": "TP2"},
+    "CV007": {"inicio": 1200, "centro": 600, "fin": 1, "lbl_inicio": "TP2", "lbl_fin": "Shuttle"},
 }
 
 DICC_NIVELES = {
@@ -68,7 +67,7 @@ def get_base64_img(file):
 img_base64 = get_base64_img('correa.png')
 
 # 6. INTERFAZ MULTI-PESTAÑA
-st.title("📊 Sistema de Monitoreo de Fibra Óptica")
+st.title("📊 Central de Monitoreo de Convergencia")
 
 tabs = st.tabs(list(CONFIG_CORREAS.keys()))
 
@@ -78,6 +77,7 @@ for i, correa_id in enumerate(CONFIG_CORREAS.keys()):
         df_eventos = leer_datos(correa_id)
         
         st.subheader(f"Estado Actual - {correa_id}")
+        st.caption(f"Configuración Física: {conf['lbl_inicio']} ({conf['inicio']}) ➡️ Centro ({conf['centro']}) ⬅ {conf['lbl_fin']} ({conf['fin']})")
         
         # Lógica de coordenadas según el centro de esta correa
         def trans_x(est):
@@ -103,15 +103,15 @@ for i, correa_id in enumerate(CONFIG_CORREAS.keys()):
                 niv = int(fila["nivel"])
                 xd, xh = trans_x(fila["estacion_desde"]), trans_x(fila["estacion_hasta"])
                 
-                # Metrajes dinámicos
+                # Metrajes dinámicos relativos a sus frentes reales
                 if fila["estacion_desde"] >= conf['centro']:
                     md = abs(conf['inicio'] - fila["estacion_desde"]) * (1.5 if niv != 5 else 12)
                     mh = abs(conf['inicio'] - fila["estacion_hasta"]) * (1.5 if niv != 5 else 12)
-                    frente = "Norte"
+                    frente = f"{conf['lbl_inicio']} hacia Centro"
                 else:
                     md = abs(fila["estacion_desde"] - conf['fin']) * (1.5 if niv != 5 else 12)
                     mh = abs(fila["estacion_hasta"] - conf['fin']) * (1.5 if niv != 5 else 12)
-                    frente = "Sur"
+                    frente = f"{conf['lbl_fin']} hacia Centro"
 
                 fig.add_trace(go.Scatter(
                     x=[xd, xh], y=[niv, niv], mode="lines+markers+text",
@@ -125,6 +125,14 @@ for i, correa_id in enumerate(CONFIG_CORREAS.keys()):
         paso = ancho_total / 8
         ticks_x = [x_min + (paso * j) for j in range(9)]
         labels_x = [str(int(conf['centro'] - val)) if val <=0 else str(int(conf['centro'] - val)) for val in ticks_x]
+        
+        # Sobrescribir extremos con los nombres reales de los terminales de esta correa
+        labels_x[0] = f"{conf['lbl_inicio']}<br>({conf['inicio']})"
+        labels_x[-1] = f"{conf['lbl_fin']}<br>({conf['fin']})"
+        labels_x[4] = f"<b>Centro</b><br>({conf['centro']})"
+
+        for niv, info in DICC_NIVELES.items():
+            fig.add_trace(go.Scatter(x=[None], y=[None], mode="markers", marker=dict(color=info["color"], size=10), name=info["nombre"]))
 
         fig.update_layout(
             xaxis=dict(tickvals=ticks_x, ticktext=labels_x, gridcolor="rgba(0,0,0,0.1)", tickangle=-45),
@@ -132,7 +140,7 @@ for i, correa_id in enumerate(CONFIG_CORREAS.keys()):
             margin=dict(l=50, r=320, t=30, b=100), height=650,
             legend=dict(y=1, x=1.05),
             annotations=[dict(xref="paper", yref="paper", x=1.05, y=0.3, showarrow=False, align="left",
-                             text=f"<b>📊 AVANCE {correa_id}</b>", bgcolor="white", bordercolor="gray", borderwidth=1, borderpad=10)]
+                             text=f"<b>📊 ACTIVO: {correa_id}</b>", bgcolor="white", bordercolor="gray", borderwidth=1, borderpad=10)]
         )
         st.plotly_chart(fig, use_container_width=True, key=f"gr_{correa_id}")
 
@@ -141,19 +149,27 @@ for i, correa_id in enumerate(CONFIG_CORREAS.keys()):
         with st.sidebar.expander(f"📥 Registrar {correa_id}"):
             with st.form(key=f"form_{correa_id}"):
                 op = st.text_input("Operador:", key=f"op_{correa_id}")
-                frente = st.radio("Frente:", ["TP1 (Norte)", "EM (Sur)"], key=f"fr_{correa_id}")
-                niv = st.selectbox("Nivel:", list(DICC_NIVELES.keys()), format_func=lambda x: DICC_NIVELES[x]["nombre"], key=f"nv_{correa_id}")
+                frente = st.radio("Frente de Avance:", [f"{conf['lbl_inicio']} hacia Centro", f"{conf['lbl_fin']} hacia Centro"], key=f"fr_{correa_id}")
+                niv = st.selectbox("Nivel / Condición:", list(DICC_NIVELES.keys()), format_func=lambda x: DICC_NIVELES[x]["nombre"], key=f"nv_{correa_id}")
+                nota = st.text_input("Nota:", key=f"nota_{correa_id}")
                 
-                if frente == "TP1 (Norte)":
-                    d = st.number_input("Desde:", conf['centro'], conf['inicio'], conf['inicio'], key=f"d_{correa_id}")
-                    h = st.number_input("Hasta:", conf['centro'], conf['inicio'], conf['centro'], key=f"h_{correa_id}")
+                if frente == f"{conf['lbl_inicio']} hacia Centro":
+                    d = st.number_input("Desde (Pto Lejano):", conf['centro'], conf['inicio'], conf['inicio'], key=f"d_{correa_id}")
+                    h = st.number_input("Hasta (Hacia Centro):", conf['centro'], conf['inicio'], conf['centro'], key=f"h_{correa_id}")
                 else:
-                    d = st.number_input("Desde:", conf['fin'], conf['centro'], conf['fin'], key=f"d2_{correa_id}")
-                    h = st.number_input("Hasta:", conf['fin'], conf['centro'], conf['centro'], key=f"h2_{correa_id}")
+                    d = st.number_input("Desde (Pto Lejano):", conf['fin'], conf['centro'], conf['fin'], key=f"d2_{correa_id}")
+                    h = st.number_input("Hasta (Hacia Centro):", conf['fin'], conf['centro'], conf['centro'], key=f"h2_{correa_id}")
                 
-                if st.form_submit_button("Guardar"):
-                    guardar_registro(op, d, h, niv, "", frente=="TP1 (Norte)", correa_id)
-                    st.rerun()
+                if st.form_submit_button("Guardar Registro"):
+                    if op:
+                        guardar_registro(op, d, h, niv, nota, frente==f"{conf['lbl_inicio']} hacia Centro", correa_id)
+                        st.rerun()
+                    else:
+                        st.error("Por favor, ingrese el nombre del operador.")
 
-        # Auditoría por correa
-        st.dataframe(df_eventos.sort_values("created_at", ascending=False), use_container_width=True)
+        # Historial de Auditoría protegido contra tablas vacías
+        st.subheader("📋 Historial de Cambios")
+        if not df_eventos.empty:
+            st.dataframe(df_eventos.sort_values("created_at", ascending=False), use_container_width=True)
+        else:
+            st.caption("No hay registros almacenados para esta correa aún. Use el formulario lateral para ingresar el primero.")
