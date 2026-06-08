@@ -43,16 +43,7 @@ def leer_datos(correa_id):
 def guardar_registro(operador, desde, hasta, nivel, nota, correa_id, es_norte=None, centro=None):
     if nivel in [0, 5]:
         try:
-            # Si tiene tramos independientes, borramos solo el segmento del frente seleccionado para no solapar fondos
-            if centro is not None and es_norte is not None:
-                if es_norte:
-                    # En la base de datos las estaciones norte de la 06 se guardan como texto (las letras) o números >= 1845
-                    # Para simplificar la limpieza, filtramos de manera general o puedes afinar según convenga
-                    supabase.table("eventos_correa").delete().eq("correa_id", correa_id).eq("nivel", nivel).execute()
-                else:
-                    supabase.table("eventos_correa").delete().eq("correa_id", correa_id).eq("nivel", nivel).execute()
-            else:
-                supabase.table("eventos_correa").delete().eq("correa_id", correa_id).eq("nivel", nivel).execute()
+            supabase.table("eventos_correa").delete().eq("correa_id", correa_id).eq("nivel", nivel).execute()
         except Exception:
             pass
     
@@ -84,7 +75,7 @@ def get_base64_img(file):
 img_base64 = get_base64_img('correa.png')
 
 # 5. INTERFAZ PRINCIPAL MULTI-PESTAÑA
-st.title("🚀 Sistema de Monitoreo de Polines mediante Fibra Óptica")
+st.title("🚀 Sistema de Monitoreo de Correas mediante Fibra Óptica")
 
 tabs = st.tabs(["CV005", "CV006", "CV007"])
 
@@ -137,13 +128,13 @@ with tabs[0]:
                 ))
             except: pass
 
-    texto_avance_05 = f"<b>📊 AVANCE GENERAL CV005</b><br>🔴 Troncal: <b>{porc_troncal_05:.1f}%</b><br>Purple Sensitiva: <b>{porc_sensitiva_05:.1f}%</b>"
+    texto_avance_05 = f"<span style='font-size:14px;'><b>📊 AVANCE GENERAL CV005</b><br><br>🔴 Troncal: <b>{porc_troncal_05:.1f}%</b><br>🟣 Sensitiva: <b>{porc_sensitiva_05:.1f}%</b></span>"
 
     fig.update_layout(
         xaxis=dict(tickvals=[-1823, -1000, 0, 1000, 1999], ticktext=["TP1 (3823)", "3000", "Centro (2000)", "1000", "EM (1)"], gridcolor="rgba(0,0,0,0.1)"), 
         yaxis=dict(range=[-2.2, 6.2], dtick=1, tickvals=list(DICC_NIVELES.keys()), ticktext=[n["nombre"] for n in DICC_NIVELES.values()]), 
-        margin=dict(l=50, r=320, t=30, b=100), height=550,
-        annotations=[dict(xref="paper", yref="paper", x=1.03, y=0.4, showarrow=False, align="left", text=texto_avance_05, bgcolor="white", bordercolor="gray", borderwidth=1, borderpad=10)]
+        margin=dict(l=50, r=340, t=30, b=100), height=550,
+        annotations=[dict(xref="paper", yref="paper", x=1.05, y=0.5, showarrow=False, align="left", text=texto_avance_05, bgcolor="white", bordercolor="gray", borderwidth=1, borderpad=12)]
     )
     st.plotly_chart(fig, use_container_width=True, key="gr_05")
 
@@ -155,10 +146,10 @@ with tabs[0]:
             
             if frente == "TP1 hacia Centro (Norte)":
                 d = st.number_input("Desde Estación (Punto Lejano):", 2000, 3823, 3823, key="d05_n")
-                h = st.number_input("Hasta Estación (Hacia el Centro):", 2000, 3823, 2000, key="h05_n")
+                h = st.number_input("Hasta Estación (Hacia Centro 2000):", 2000, 3823, 2000, key="h05_n")
             else:
                 d = st.number_input("Desde Estación (Punto Lejano):", 1, 2000, 1, key="d05_s")
-                h = st.number_input("Hasta Estación (Hacia el Centro):", 1, 2000, 2000, key="h05_s")
+                h = st.number_input("Hasta Estación (Hacia Centro 2000):", 1, 2000, 2000, key="h05_s")
                 
             nota = st.text_input("Nota:", key="nota05")
             if st.form_submit_button("Guardar Registro CV005"):
@@ -176,6 +167,7 @@ with tabs[0]:
     if not df_ev.empty: st.dataframe(df_ev, use_container_width=True)
     else: st.caption("No hay registros guardados para la CV005.")
 
+
 # ==========================================
 # PESTAÑA CORREA CV006
 # ==========================================
@@ -183,14 +175,14 @@ with tabs[1]:
     correa_id = "CV006"
     df_ev = leer_datos(correa_id)
     st.subheader(f"Estado Actual - {correa_id}")
-    st.caption("Frente Físico: TP1 (3B Carga ➡️ 1) ➡️ Centro (1845) ⬅️ TP2 (3526)")
+    st.caption("Frente Físico: TP1 (3B Carga ➡️ 1845) 🤝 (1846 ⬅️ 3526) TP2")
 
     def trans_x_06(est_str):
-        if est_str in MAPEO_LETRAS_CV006:
-            val_ficticio = MAPEO_LETRAS_CV006[est_str]
+        n = convertir_a_numero_puro(est_str)
+        if n <= 1845:
+            return n - 1845
         else:
-            val_ficticio = int(est_str)
-        return -(val_ficticio - 1845) if val_ficticio >= 1845 or val_ficticio < 0 else (1845 - val_ficticio)
+            return 3526 - n + 1
 
     total_estaciones_06 = 3526 + 3
     metros_troncal_06 = 0
@@ -211,7 +203,7 @@ with tabs[1]:
 
     fig = go.Figure()
     if img_base64:
-        fig.add_layout_image(dict(source=f"data:image/png;base64,{img_base64}", xref="x", yref="y", x=-1848, y=-0.7, sizex=3526 + 1848, sizey=1.0, sizing="stretch", opacity=0.9, layer="below"))
+        fig.add_layout_image(dict(source=f"data:image/png;base64,{img_base64}", xref="x", yref="y", x=-1848, y=-0.7, sizex=1848 + 1681, sizey=1.0, sizing="stretch", opacity=0.9, layer="below"))
 
     if not df_ev.empty:
         for _, fila in df_ev.iterrows():
@@ -230,13 +222,17 @@ with tabs[1]:
                 ))
             except: pass
 
-    texto_avance_06 = f"<b>📊 AVANCE GENERAL CV006</b><br>🔴 Troncal: <b>{porc_troncal_06:.1f}%</b><br>Purple Sensitiva: <b>{porc_sensitiva_06:.1f}%</b>"
+    texto_avance_06 = f"<span style='font-size:14px;'><b>📊 AVANCE GENERAL CV006</b><br><br>🔴 Troncal: <b>{porc_troncal_06:.1f}%</b><br>🟣 Sensitiva: <b>{porc_sensitiva_06:.1f}%</b></span>"
 
     fig.update_layout(
-        xaxis=dict(tickvals=[trans_x_06("3B Carga"), trans_x_06("1B Carga"), trans_x_06("1"), 0, trans_x_06("3526")], ticktext=["3B Carga (TP1)", "1B Carga", "Est. 1", "Centro (1845)", "TP2 (3526)"], gridcolor="rgba(0,0,0,0.1)"), 
+        xaxis=dict(
+            tickvals=[trans_x_06("3B Carga"), trans_x_06("1"), trans_x_06("1845"), trans_x_06("1846"), trans_x_06("3526")], 
+            ticktext=["3B Carga (TP1)", "Est. 1", "Centro (1845)", "Centro (1846)", "TP2 (3526)"], 
+            gridcolor="rgba(0,0,0,0.1)"
+        ), 
         yaxis=dict(range=[-2.2, 6.2], dtick=1, tickvals=list(DICC_NIVELES.keys()), ticktext=[n["nombre"] for n in DICC_NIVELES.values()]), 
-        margin=dict(l=50, r=320, t=30, b=100), height=550,
-        annotations=[dict(xref="paper", yref="paper", x=1.03, y=0.4, showarrow=False, align="left", text=texto_avance_06, bgcolor="white", bordercolor="gray", borderwidth=1, borderpad=10)]
+        margin=dict(l=50, r=340, t=30, b=100), height=550,
+        annotations=[dict(xref="paper", yref="paper", x=1.05, y=0.5, showarrow=False, align="left", text=texto_avance_06, bgcolor="white", bordercolor="gray", borderwidth=1, borderpad=12)]
     )
     st.plotly_chart(fig, use_container_width=True, key="gr_06")
 
@@ -244,21 +240,21 @@ with tabs[1]:
         with st.form(key="f_06"):
             op = st.text_input("Operador:", key="op06")
             niv = st.selectbox("Nivel / Condición:", list(DICC_NIVELES.keys()), format_func=lambda x: DICC_NIVELES[x]["nombre"], key="niv06")
-            frente = st.radio("Seleccionar Tramo / Frente:", ["TP1 hacia Centro (Norte / Letras)", "TP2 hacia Centro (Sur)"], key="frente06")
+            frente = st.radio("Seleccionar Tramo / Frente:", ["TP1 hacia Centro (Norte: 3B a 1845)", "TP2 hacia Centro (Sur: 3526 a 1846)"], key="frente06")
             
-            if frente == "TP1 hacia Centro (Norte / Letras)":
+            if frente == "TP1 hacia Centro (Norte: 3B a 1845)":
                 opciones_norte = ["3B Carga", "2B Carga", "1B Carga"] + [str(n) for n in range(1, 1846)]
-                d = st.selectbox("Desde Estación (Punto Lejano):", opciones_norte, index=0, key="d06_n")
+                d = st.selectbox("Desde Estación (Punto Lejano TP1):", opciones_norte, index=0, key="d06_n")
                 h = st.selectbox("Hasta Estación (Hacia Centro 1845):", opciones_norte, index=len(opciones_norte)-1, key="h06_n")
             else:
-                opciones_sur = [str(n) for n in range(1845, 3527)]
+                opciones_sur = [str(n) for n in range(1846, 3527)]
                 d = st.selectbox("Desde Estación (Punto Lejano TP2):", opciones_sur, index=len(opciones_sur)-1, key="d06_s")
-                h = st.selectbox("Hasta Estación (Hacia Centro 1845):", opciones_sur, index=0, key="h06_s")
+                h = st.selectbox("Hasta Estación (Hacia Centro 1846):", opciones_sur, index=0, key="h06_s")
                 
             nota = st.text_input("Nota:", key="nota06")
             if st.form_submit_button("Guardar Registro CV006"):
                 if op:
-                    guardar_registro(op, d, h, niv, nota, correa_id, es_norte=(frente == "TP1 hacia Centro (Norte / Letras)"), centro=1845)
+                    guardar_registro(op, d, h, niv, nota, correa_id, es_norte=(frente == "TP1 hacia Centro (Norte: 3B a 1845)"), centro=1845)
                     st.rerun()
                 else: st.error("Falta ingresar Operador.")
                 
@@ -271,8 +267,9 @@ with tabs[1]:
     if not df_ev.empty: st.dataframe(df_ev, use_container_width=True)
     else: st.caption("No hay registros guardados para la CV006.")
 
+
 # ==========================================
-# PESTAÑA CORREA CV007 (Línea Continua Sin Tramos Medios)
+# PESTAÑA CORREA CV007 (Geometría Unificada y Tarjeta Lateral)
 # ==========================================
 with tabs[2]:
     correa_id = "CV007"
@@ -298,7 +295,8 @@ with tabs[2]:
 
     fig = go.Figure()
     if img_base64:
-        fig.add_layout_image(dict(source=f"data:image/png;base64,{img_base64}", xref="x", yref="y", x=3, y=-0.7, sizex=842 - 3, sizey=1.0, sizing="stretch", opacity=0.9, layer="below"))
+        # Modificado: Se reduce el sizex a la mitad exacta para renderizar un tramo simple sin duplicarse
+        fig.add_layout_image(dict(source=f"data:image/png;base64,{img_base64}", xref="x", yref="y", x=3, y=-0.7, sizex=(842 - 3) * 2, sizey=1.0, sizing="stretch", opacity=0.9, layer="below"))
 
     if not df_ev.empty:
         for _, fila in df_ev.iterrows():
@@ -315,22 +313,23 @@ with tabs[2]:
                 ))
             except: pass
 
-    texto_avance_07 = f"<b>📊 AVANCE GENERAL CV007</b><br>🔴 Troncal: <b>{porc_troncal_07:.1f}%</b><br>Purple Sensitiva: <b>{porc_sensitiva_07:.1f}%</b>"
+    # Modificado: Incrementado el tamaño del texto y agregado saltos de línea para legibilidad
+    texto_avance_07 = f"<span style='font-size:14px;'><b>📊 AVANCE GENERAL CV007</b><br><br>🔴 Troncal: <b>{porc_troncal_07:.1f}%</b><br>🟣 Sensitiva: <b>{porc_sensitiva_07:.1f}%</b></span>"
 
+    # Modificado: Movido el cuadro al costado derecho (x=1.05) ampliando el margen (r=340) para que no tape las barras
     fig.update_layout(
         xaxis=dict(range=[0, 850], tickvals=[3, 200, 400, 600, 842], ticktext=["TP2 (Est. 3)", "200", "400", "600", "Shuttler (Est. 842)"], gridcolor="rgba(0,0,0,0.1)"), 
         yaxis=dict(range=[-2.2, 6.2], dtick=1, tickvals=list(DICC_NIVELES.keys()), ticktext=[n["nombre"] for n in DICC_NIVELES.values()]), 
-        margin=dict(l=50, r=320, t=30, b=100), height=550,
-        annotations=[dict(xref="paper", yref="paper", x=1.03, y=0.4, showarrow=False, align="left", text=texto_avance_07, bgcolor="white", bordercolor="gray", borderwidth=1, borderpad=10)]
+        margin=dict(l=50, r=340, t=30, b=100), height=550,
+        annotations=[dict(xref="paper", yref="paper", x=1.05, y=0.5, showarrow=False, align="left", text=texto_avance_07, bgcolor="white", bordercolor="gray", borderwidth=1, borderpad=12)]
     )
     st.plotly_chart(fig, use_container_width=True, key="gr_07")
 
     with st.sidebar.expander(f"📥 Registrar Datos CV007"):
         with st.form(key="f_07"):
             op = st.text_input("Operador:", key="op07")
-            niv = st.selectbox("Nivel / Condición:", list(DICC_NIVELES.keys()), format_func=lambda x: DICC_NIVELES[x]["nombre"], key="niv07")
+            niv = st.selectbox("Nivel / Condition:", list(DICC_NIVELES.keys()), format_func=lambda x: DICC_NIVELES[x]["nombre"], key="niv07")
             
-            # Formulario lineal continuo de extremo a extremo sin divisiones
             d = st.number_input("Desde Estación (Inicio):", 3, 842, 3, key="d07_lineal")
             h = st.number_input("Hasta Estación (Fin):", 3, 842, 842, key="h07_lineal")
             
