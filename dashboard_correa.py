@@ -32,7 +32,7 @@ DICC_NIVELES = {
     5: {"nombre": "Nivel 5: Fibra Óptica Sensitiva monitoreada", "color": "purple"}
 }
 
-# 3. FUNCIONES DE BASE DE DATOS
+# 3. FUNCIONES DE BASE DE DATOS CORREGIDAS
 def leer_datos(correa_id):
     try:
         response = supabase.table("eventos_correa").select("*").eq("correa_id", correa_id).execute()
@@ -40,21 +40,26 @@ def leer_datos(correa_id):
     except Exception:
         return pd.DataFrame()
 
-def guardar_registro(operador, desde, hasta, nivel, nota, correa_id, es_norte=None, centro=None):
+def guardar_registro(operador, desde, hasta, nivel, nota, correa_id):
+    # Corrección: Limpieza directa y segura por correa y nivel antes de insertar
     if nivel in [0, 5]:
         try:
             supabase.table("eventos_correa").delete().eq("correa_id", correa_id).eq("nivel", nivel).execute()
-        except Exception:
-            pass
+        except Exception as e:
+            st.warning(f"Aviso en limpieza previa: {e}")
     
     nuevo = {
-        "operador": operador, "estacion_desde": str(desde), "estacion_hasta": str(hasta),
-        "nivel": nivel, "nota": nota, "correa_id": correa_id
+        "operador": operador, 
+        "estacion_desde": str(desde), 
+        "estacion_hasta": str(hasta),
+        "nivel": int(nivel), 
+        "nota": nota, 
+        "correa_id": correa_id
     }
     try:
         supabase.table("eventos_correa").insert(nuevo).execute()
     except Exception as e:
-        st.error(f"Error al guardar: {e}")
+        st.error(f"Error crítico al guardar en Base de Datos: {e}")
 
 def convertir_a_numero_puro(est_str):
     if est_str in MAPEO_LETRAS_CV006:
@@ -75,7 +80,7 @@ def get_base64_img(file):
 img_base64 = get_base64_img('correa.png')
 
 # 5. INTERFAZ PRINCIPAL MULTI-PESTAÑA
-st.title("🚀 Sistema de Monitoreo de Correas mediante Fibra Óptica")
+st.title("🚀 Sistema de Monitoreo de Polines Mediante Fibra Óptica")
 
 tabs = st.tabs(["CV005", "CV006", "CV007"])
 
@@ -154,7 +159,7 @@ with tabs[0]:
             nota = st.text_input("Nota:", key="nota05")
             if st.form_submit_button("Guardar Registro CV005"):
                 if op:
-                    guardar_registro(op, d, h, niv, nota, correa_id, es_norte=(frente == "TP1 hacia Centro (Norte)"), centro=2000)
+                    guardar_registro(op, d, h, niv, nota, correa_id)
                     st.rerun()
                 else: st.error("Falta ingresar Operador.")
                 
@@ -169,7 +174,7 @@ with tabs[0]:
 
 
 # ==========================================
-# PESTAÑA CORREA CV006
+# PESTAÑA CORREA CV006 (Lógica de Registro Corregida)
 # ==========================================
 with tabs[1]:
     correa_id = "CV006"
@@ -254,7 +259,8 @@ with tabs[1]:
             nota = st.text_input("Nota:", key="nota06")
             if st.form_submit_button("Guardar Registro CV006"):
                 if op:
-                    guardar_registro(op, d, h, niv, nota, correa_id, es_norte=(frente == "TP1 hacia Centro (Norte: 3B a 1845)"), centro=1845)
+                    # Corrección: Se remueven los flags problemáticos para garantizar el guardado lineal sin interrupciones
+                    guardar_registro(op, d, h, niv, nota, correa_id)
                     st.rerun()
                 else: st.error("Falta ingresar Operador.")
                 
@@ -269,7 +275,7 @@ with tabs[1]:
 
 
 # ==========================================
-# PESTAÑA CORREA CV007 (Geometría Unificada y Tarjeta Lateral)
+# PESTAÑA CORREA CV007
 # ==========================================
 with tabs[2]:
     correa_id = "CV007"
@@ -295,7 +301,6 @@ with tabs[2]:
 
     fig = go.Figure()
     if img_base64:
-        # Modificado: Se reduce el sizex a la mitad exacta para renderizar un tramo simple sin duplicarse
         fig.add_layout_image(dict(source=f"data:image/png;base64,{img_base64}", xref="x", yref="y", x=3, y=-0.7, sizex=(842 - 3) * 2, sizey=1.0, sizing="stretch", opacity=0.9, layer="below"))
 
     if not df_ev.empty:
@@ -313,10 +318,8 @@ with tabs[2]:
                 ))
             except: pass
 
-    # Modificado: Incrementado el tamaño del texto y agregado saltos de línea para legibilidad
     texto_avance_07 = f"<span style='font-size:14px;'><b>📊 AVANCE GENERAL CV007</b><br><br>🔴 Troncal: <b>{porc_troncal_07:.1f}%</b><br>🟣 Sensitiva: <b>{porc_sensitiva_07:.1f}%</b></span>"
 
-    # Modificado: Movido el cuadro al costado derecho (x=1.05) ampliando el margen (r=340) para que no tape las barras
     fig.update_layout(
         xaxis=dict(range=[0, 850], tickvals=[3, 200, 400, 600, 842], ticktext=["TP2 (Est. 3)", "200", "400", "600", "Shuttler (Est. 842)"], gridcolor="rgba(0,0,0,0.1)"), 
         yaxis=dict(range=[-2.2, 6.2], dtick=1, tickvals=list(DICC_NIVELES.keys()), ticktext=[n["nombre"] for n in DICC_NIVELES.values()]), 
@@ -328,7 +331,7 @@ with tabs[2]:
     with st.sidebar.expander(f"📥 Registrar Datos CV007"):
         with st.form(key="f_07"):
             op = st.text_input("Operador:", key="op07")
-            niv = st.selectbox("Nivel / Condition:", list(DICC_NIVELES.keys()), format_func=lambda x: DICC_NIVELES[x]["nombre"], key="niv07")
+            niv = st.selectbox("Nivel / Condición:", list(DICC_NIVELES.keys()), format_func=lambda x: DICC_NIVELES[x]["nombre"], key="niv07")
             
             d = st.number_input("Desde Estación (Inicio):", 3, 842, 3, key="d07_lineal")
             h = st.number_input("Hasta Estación (Fin):", 3, 842, 842, key="h07_lineal")
