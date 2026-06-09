@@ -70,9 +70,7 @@ def convertir_a_numero_puro(est_str):
     except: return 0
 
 def obtener_metros_reales(num_estacion, correa_id, nivel):
-    """Calcula metros acumulados absolutos desde el cero izquierdo respetando las constantes físicas precisas"""
     factor = 1.5 if int(nivel) == 0 else (17.0 if correa_id == "CV007" else 14.0)
-    
     if correa_id == "CV005":
         return (3823 - num_estacion) * factor
     elif correa_id == "CV006":
@@ -122,8 +120,15 @@ with tabs[0]:
 
     with col_grafico:
         fig = go.Figure()
+        # IMAGEN CORREGIDA: Se posiciona en la zona inferior (-2.5) con una altura proporcionada (sizey=2.0)
         if img_base64:
-            fig.add_layout_image(dict(source=f"data:image/png;base64,{img_base64}", xref="x", yref="y", x=-1823, y=-0.7, sizex=3823, sizey=1.0, sizing="stretch", opacity=0.9, layer="below"))
+            fig.add_layout_image(dict(
+                source=f"data:image/png;base64,{img_base64}", 
+                xref="x", yref="y", 
+                x=-1823, y=-0.5, 
+                sizex=3823, sizey=2.0, 
+                sizing="stretch", opacity=0.85, layer="below"
+            ))
 
         if not df_ev.empty:
             for _, fila in df_ev.iterrows():
@@ -154,10 +159,15 @@ with tabs[0]:
             xaxis=dict(
                 tickvals=[-1823, -1000, 0, 1000, 1999], 
                 ticktext=["TP1 (3823) [0.0 m]", "3000", "Centro (2000)", "1000", "EM (1)"], 
-                gridcolor="rgba(0,0,0,0.1)", tickangle=-45, tickfont=dict(size=12)
+                gridcolor="rgba(0,0,0,0.05)", tickangle=0, tickfont=dict(size=11)
             ), 
-            yaxis=dict(range=[-1.0, 6.0], dtick=5, tickvals=list(DICC_NIVELES.keys()), ticktext=[n["nombre"] for n in DICC_NIVELES.values()]), 
-            margin=dict(l=50, r=50, t=30, b=100), height=400, hovermode="closest"
+            yaxis=dict(
+                range=[-3.0, 6.5], 
+                dtick=5, 
+                tickvals=list(DICC_NIVELES.keys()), 
+                ticktext=[n["nombre"] for n in DICC_NIVELES.values()]
+            ), 
+            margin=dict(l=50, r=50, t=30, b=50), height=450, hovermode="closest"
         )
         st.plotly_chart(fig, use_container_width=True, key="gr_05")
 
@@ -170,7 +180,6 @@ with tabs[0]:
         st.metric(label="Troncal (Nivel 0)", value=f"{metros_troncal_05:.1f} m")
         st.metric(label="Sensitiva (Nivel 5)", value=f"{metros_sensitiva_05:.1f} m")
 
-    # TABLA DE REGISTROS CV005
     st.markdown("### 📋 Historial de Registros en Base de Datos")
     if not df_ev.empty:
         st.dataframe(df_ev[["id", "operador", "estacion_desde", "estacion_hasta", "nivel", "nota", "created_at"]].sort_values(by="created_at", ascending=False), use_container_width=True)
@@ -194,7 +203,7 @@ with tabs[0]:
 
 
 # ==========================================
-# PESTAÑA CORREA CV006 (ORIENTACIÓN TOTALMENTE REPARADA)
+# PESTAÑA CORREA CV006
 # ==========================================
 with tabs[1]:
     correa_id = "CV006"
@@ -221,8 +230,15 @@ with tabs[1]:
 
     with col_grafico_06:
         fig = go.Figure()
+        # IMAGEN CORREGIDA: Se ajusta la escala del contenedor de la banda de hule
         if img_base64:
-            fig.add_layout_image(dict(source=f"data:image/png;base64,{img_base64}", xref="x", yref="y", x=-3, y=-0.7, sizex=3530, sizey=1.0, sizing="stretch", opacity=0.9, layer="below"))
+            fig.add_layout_image(dict(
+                source=f"data:image/png;base64,{img_base64}", 
+                xref="x", yref="y", 
+                x=-3, y=-0.5, 
+                sizex=3530, sizey=2.0, 
+                sizing="stretch", opacity=0.85, layer="below"
+            ))
 
         if not df_ev.empty:
             for _, fila in df_ev.iterrows():
@@ -254,10 +270,15 @@ with tabs[1]:
             xaxis=dict(
                 tickvals=[-3, 1845, 1846, 3526], 
                 ticktext=["3B Carga (TP1) [0.0 m]", "Centro (1845)", "Centro (1846)", "TP2 (3526)"], 
-                gridcolor="rgba(0,0,0,0.1)", tickangle=-45, tickfont=dict(size=12)
+                gridcolor="rgba(0,0,0,0.05)", tickangle=0, tickfont=dict(size=11)
             ), 
-            yaxis=dict(range=[-1.0, 6.0], dtick=5, tickvals=list(DICC_NIVELES.keys()), ticktext=[n["nombre"] for n in DICC_NIVELES.values()]), 
-            margin=dict(l=50, r=50, t=30, b=100), height=400, hovermode="closest"
+            yaxis=dict(
+                range=[-3.0, 6.5], 
+                dtick=5, 
+                tickvals=list(DICC_NIVELES.keys()), 
+                ticktext=[n["nombre"] for n in DICC_NIVELES.values()]
+            ), 
+            margin=dict(l=50, r=50, t=30, b=50), height=450, hovermode="closest"
         )
         st.plotly_chart(fig, use_container_width=True, key="gr_06")
 
@@ -270,7 +291,6 @@ with tabs[1]:
         st.metric(label="Troncal (Nivel 0)", value=f"{metros_troncal_06:.1f} m")
         st.metric(label="Sensitiva (Nivel 5)", value=f"{metros_sensitiva_06:.1f} m")
 
-    # TABLA DE REGISTROS CV006
     st.markdown("### 📋 Historial de Registros en Base de Datos")
     if not df_ev.empty:
         st.dataframe(df_ev[["id", "operador", "estacion_desde", "estacion_hasta", "nivel", "nota", "created_at"]].sort_values(by="created_at", ascending=False), use_container_width=True)
@@ -288,7 +308,7 @@ with tabs[1]:
 
         with st.form(key="f_06_historial"):
             op = st.text_input("Operador:", key="op06_hist")
-            niv = st.selectbox("Nivel / Condición:", list(DICC_NIVELES.keys()), format_func=lambda x: DICC_NIVELES[x]["nombre"], key="niv06_hist")
+            niv = st.selectbox("Nivel / Condition:", list(DICC_NIVELES.keys()), format_func=lambda x: DICC_NIVELES[x]["nombre"], key="niv06_hist")
             d = st.selectbox("Desde Estación:", opciones_estaciones, index=idx_def_desde, key="d06_hist")
             h = st.selectbox("Hasta Estación:", opciones_estaciones, index=idx_def_hasta, key="h06_hist")
             nota = st.text_input("Nota:", key="nota06_hist")
@@ -297,7 +317,7 @@ with tabs[1]:
 
 
 # ==========================================
-# PESTAÑA CORREA CV007 (FACTOR 17 METROS)
+# PESTAÑA CORREA CV007
 # ==========================================
 with tabs[2]:
     correa_id = "CV007"
@@ -321,8 +341,15 @@ with tabs[2]:
 
     with col_grafico_07:
         fig = go.Figure()
+        # IMAGEN CORREGIDA: Seteo simétrico y proporcional para evitar la compresión vertical
         if img_base64:
-            fig.add_layout_image(dict(source=f"data:image/png;base64,{img_base64}", xref="x", yref="y", x=3, y=-0.7, sizex=(842 - 3) * 2, sizey=1.0, sizing="stretch", opacity=0.9, layer="below"))
+            fig.add_layout_image(dict(
+                source=f"data:image/png;base64,{img_base64}", 
+                xref="x", yref="y", 
+                x=3, y=-0.5, 
+                sizex=839, sizey=2.0, 
+                sizing="stretch", opacity=0.85, layer="below"
+            ))
 
         if not df_ev.empty:
             for _, fila in df_ev.iterrows():
@@ -353,10 +380,15 @@ with tabs[2]:
                 range=[0, 850], 
                 tickvals=[3, 200, 400, 600, 842], 
                 ticktext=["TP2 (Est. 3) [0.0 m]", "200", "400", "600", "Shuttler (Est. 842)"], 
-                gridcolor="rgba(0,0,0,0.1)", tickangle=-45, tickfont=dict(size=12)
+                gridcolor="rgba(0,0,0,0.05)", tickangle=0, tickfont=dict(size=11)
             ), 
-            yaxis=dict(range=[-1.0, 6.0], dtick=5, tickvals=list(DICC_NIVELES.keys()), ticktext=[n["nombre"] for n in DICC_NIVELES.values()]), 
-            margin=dict(l=50, r=50, t=30, b=100), height=400, hovermode="closest"
+            yaxis=dict(
+                range=[-3.0, 6.5], 
+                dtick=5, 
+                tickvals=list(DICC_NIVELES.keys()), 
+                ticktext=[n["nombre"] for n in DICC_NIVELES.values()]
+            ), 
+            margin=dict(l=50, r=50, t=30, b=50), height=450, hovermode="closest"
         )
         st.plotly_chart(fig, use_container_width=True, key="gr_07")
 
@@ -369,7 +401,6 @@ with tabs[2]:
         st.metric(label="Troncal (Nivel 0)", value=f"{metros_troncal_07:.1f} m")
         st.metric(label="Sensitiva (Nivel 5)", value=f"{metros_sensitiva_07:.1f} m")
 
-    # TABLA DE REGISTROS CV007
     st.markdown("### 📋 Historial de Registros en Base de Datos")
     if not df_ev.empty:
         st.dataframe(df_ev[["id", "operador", "estacion_desde", "estacion_hasta", "nivel", "nota", "created_at"]].sort_values(by="created_at", ascending=False), use_container_width=True)
