@@ -89,8 +89,8 @@ def get_base64_img(file):
 img_tecnica_base64 = get_base64_img('correa_tecnica.png') 
 
 # 5. INTERFAZ PRINCIPAL MULTI-PESTAÑA
-st.title("📊 SISTEMA DE MONITOREO DE POLINES MEDIANTE FIBRA ÓPTICA")
-st.caption("High-Tech Fiber Monitoring Command Center")
+st.markdown("<h1 style='text-align: center; color: #E066FF;'>📊 SISTEMA DE MONITOREO DE POLINES MEDIANTE FIBRA ÓPTICA</h1>", unsafe_allow_with_html=True)
+st.markdown("<p style='text-align: center; color: gray; font-size: 0.8rem;'>High-Tech Fiber Monitoring Command Center</p>", unsafe_allow_with_html=True)
 
 tabs = st.tabs(["CV005", "CV006", "CV007"])
 
