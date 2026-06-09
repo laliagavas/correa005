@@ -33,7 +33,7 @@ DICC_NIVELES = {
     5: {"nombre": "Nivel 5: Fibra Óptica Sensitiva monitoreada", "color": "purple"}
 }
 
-# 3. FUNCIONES DE BASE DE DATOS CORREGIDAS
+# 3. FUNCIONES DE BASE DE DATOS
 def leer_datos(correa_id):
     try:
         response = supabase.table("eventos_correa").select("*").eq("correa_id", correa_id).execute()
@@ -46,11 +46,9 @@ def leer_datos(correa_id):
         return pd.DataFrame()
 
 def guardar_registro(operador, desde, hasta, nivel, nota, correa_id):
-    # SOLUCIÓN CRÍTICA: Convertir strings a enteros AL PURO PRINCIPIO
     val_desde = MAPEO_LETRAS_A_NUM.get(desde, desde)
     val_hasta = MAPEO_LETRAS_A_NUM.get(hasta, hasta)
     
-    # Cualquier operación posterior con Supabase ya va con números puros
     if nivel in [0, 5]:
         try:
             supabase.table("eventos_correa").delete().eq("correa_id", correa_id).eq("nivel", nivel).execute()
@@ -185,7 +183,7 @@ with tabs[0]:
 
 
 # ==========================================
-# PESTAÑA CORREA CV006
+# PESTAÑA CORREA CV006 (CORREGIDA DINÁMICA)
 # ==========================================
 with tabs[1]:
     correa_id = "CV006"
@@ -252,22 +250,33 @@ with tabs[1]:
     )
     st.plotly_chart(fig, use_container_width=True, key="gr_06")
 
+    # SOLUCIÓN AQUÍ: El radio button está FUERA de la declaración del formulario para reactividad inmediata
     with st.sidebar.expander(f"📥 Registrar Datos CV006"):
-        with st.form(key="f_06_final"):
-            op = st.text_input("Operador:", key="op06_final")
-            niv = st.selectbox("Nivel / Condición:", list(DICC_NIVELES.keys()), format_func=lambda x: DICC_NIVELES[x]["nombre"], key="niv06_final")
-            frente = st.radio("Seleccionar Tramo / Frente:", ["TP1 hacia Centro (Norte: 3B a 1845)", "TP2 hacia Centro (Sur: 3526 a 1846)"], key="frente06_final")
+        frente_06 = st.radio(
+            "Seleccionar Tramo / Frente:", 
+            ["TP1 hacia Centro (Norte: 3B a 1845)", "TP2 hacia Centro (Sur: 3526 a 1846)"], 
+            key="frente_fuera_06"
+        )
+        
+        # Generar las listas de opciones reactivamente según el radio button
+        if frente_06 == "TP1 hacia Centro (Norte: 3B a 1845)":
+            opciones_estaciones = ["3B Carga", "2B Carga", "1B Carga"] + [str(n) for n in range(1, 1846)]
+            idx_def_desde = 0
+            idx_def_hasta = len(opciones_estaciones) - 1
+        else:
+            opciones_estaciones = [str(n) for n in range(1846, 3527)]
+            idx_def_desde = len(opciones_estaciones) - 1
+            idx_def_hasta = 0
+
+        # Ahora sí abrimos el formulario únicamente para capturar el envío
+        with st.form(key="f_06_reactivo"):
+            op = st.text_input("Operador:", key="op06_reac")
+            niv = st.selectbox("Nivel / Condición:", list(DICC_NIVELES.keys()), format_func=lambda x: DICC_NIVELES[x]["nombre"], key="niv06_reac")
             
-            if frente == "TP1 hacia Centro (Norte: 3B a 1845)":
-                opciones_norte = ["3B Carga", "2B Carga", "1B Carga"] + [str(n) for n in range(1, 1846)]
-                d = st.selectbox("Desde Estación (Punto Lejano TP1):", opciones_norte, index=0, key="d06_n_final")
-                h = st.selectbox("Hasta Estación (Hacia Centro 1845):", opciones_norte, index=len(opciones_norte)-1, key="h06_n_final")
-            else:
-                opciones_sur = [str(n) for n in range(1846, 3527)]
-                d = st.selectbox("Desde Estación (Punto Lejano TP2):", opciones_sur, index=len(opciones_sur)-1, key="d06_s_final")
-                h = st.selectbox("Hasta Estación (Hacia Centro 1846):", opciones_sur, index=0, key="h06_s_final")
-                
-            nota = st.text_input("Nota:", key="nota06_final")
+            d = st.selectbox("Desde Estación (Punto Lejano):", opciones_estaciones, index=idx_def_desde, key="d06_reac")
+            h = st.selectbox("Hasta Estación (Hacia Centro):", opciones_estaciones, index=idx_def_hasta, key="h06_reac")
+            
+            nota = st.text_input("Nota:", key="nota06_reac")
             
             if st.form_submit_button("Guardar Registro CV006"):
                 if op:
@@ -345,7 +354,7 @@ with tabs[2]:
     with st.sidebar.expander(f"📥 Registrar Datos CV007"):
         with st.form(key="f_07"):
             op = st.text_input("Operador:", key="op07")
-            niv = st.selectbox("Nivel / Condition:", list(DICC_NIVELES.keys()), format_func=lambda x: DICC_NIVELES[x]["nombre"], key="niv07")
+            niv = st.selectbox("Nivel / Condición:", list(DICC_NIVELES.keys()), format_func=lambda x: DICC_NIVELES[x]["nombre"], key="niv07")
             
             d = st.number_input("Desde Estación (Inicio):", 3, 842, 3, key="d07_lineal")
             h = st.number_input("Hasta Estación (Fin):", 3, 842, 842, key="h07_lineal")
@@ -365,3 +374,4 @@ with tabs[2]:
     st.subheader("📋 Historial de Cambios")
     if not df_ev.empty: st.dataframe(df_ev, use_container_width=True)
     else: st.caption("No hay registros guardados para la CV007.")
+
