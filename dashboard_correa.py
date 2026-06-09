@@ -158,7 +158,7 @@ with tabs[0]:
         fig.update_layout(
             xaxis=dict(
                 tickvals=[-1823, -1000, 0, 1000, 1999], 
-                ticktext=["TP1 (3823) [0.0 m]", "3000", "Centro (2000)", "1000", "EM (1)"], 
+                ticktext=["TP1 (3823)", "3000", "Centro (2000)", "1000", "EM (1)"], 
                 gridcolor="rgba(0,0,0,0.05)", tickangle=0, tickfont=dict(size=11)
             ), 
             yaxis=dict(
