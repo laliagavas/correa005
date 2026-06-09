@@ -48,7 +48,6 @@ def guardar_registro(operador, desde, hasta, nivel, nota, correa_id):
         st.error("Las estaciones ingresadas deben ser coordenadas numéricas válidas.")
         return False
 
-    # Limpieza previa controlada en base de datos para no borrar rangos opuestos
     try:
         if correa_id == "CV006":
             if val_desde <= 1845:
@@ -390,22 +389,21 @@ with st.sidebar.expander("Ingreso Datos CV005"):
         if st.form_submit_button("Guardar Registro CV005") and op:
             if guardar_registro(op, d, h, niv, nota, "CV005"): st.rerun()
 
-# SOLUCIÓN SOLICITADA PARA CV006: Estructura interactiva idéntica con selectores dinámicos numéricos
+# 🛠️ SOLUCIÓN TOTAL DEFINITIVA PARA CV006 CON CONTROLES INDEPENDIENTES POR LLAVE (KEY)
 with st.sidebar.expander("Ingreso Datos CV006"):
     with st.form(key="f_06"):
         op = st.text_input("Operador:", key="op06")
         niv = st.selectbox("Nivel / Condición:", list(DICC_NIVELES.keys()), format_func=lambda x: DICC_NIVELES[x]["nombre"], key="niv06")
         
-        # Selector de frente de trabajo igual al de la CV005
         frente_06 = st.radio("Frente de Trabajo:", ["3B Carga hacia Centro (1845)", "1846 hacia TP2 (3526)"], key="frente06")
         
-        # Ajustamos los límites de los controles numéricos (+ / -) dinámicamente según el frente elegido
+        # Al separar las variables d y h en bloques con llaves independientes, el estado interno no colisiona
         if frente_06 == "3B Carga hacia Centro (1845)":
-            d = st.number_input("Desde Estación:", min_value=-3, max_value=1845, value=-3, step=1, key="d06", format="%d")
-            h = st.number_input("Hasta Estación:", min_value=-3, max_value=1845, value=1845, step=1, key="h06", format="%d")
+            d = st.number_input("Desde Estación:", min_value=-3, max_value=1845, value=-3, step=1, key="d06_carga", format="%d")
+            h = st.number_input("Hasta Estación:", min_value=-3, max_value=1845, value=1845, step=1, key="h06_carga", format="%d")
         else:
-            d = st.number_input("Desde Estación:", min_value=1846, max_value=3526, value=1846, step=1, key="d06", format="%d")
-            h = st.number_input("Hasta Estación:", min_value=1846, max_value=3526, value=3526, step=1, key="h06", format="%d")
+            d = st.number_input("Desde Estación:", min_value=1846, max_value=3526, value=1846, step=1, key="d06_tp2", format="%d")
+            h = st.number_input("Hasta Estación:", min_value=1846, max_value=3526, value=3526, step=1, key="h06_tp2", format="%d")
             
         nota = st.text_input("Nota / Observación:", key="nota06")
         if st.form_submit_button("Guardar Registro CV006") and op:
