@@ -49,9 +49,25 @@ def guardar_registro(operador, desde, hasta, nivel, nota, correa_id):
     val_desde = MAPEO_LETRAS_A_NUM.get(desde, desde)
     val_hasta = MAPEO_LETRAS_A_NUM.get(hasta, hasta)
     
+    # LIMPIEZA INTELIGENTE EVITA SOBREESCRITURAS CRUZADAS
     if nivel in [0, 5]:
         try:
-            supabase.table("eventos_correa").delete().eq("correa_id", correa_id).eq("nivel", nivel).execute()
+            if correa_id == "CV006":
+                # Si el registro nuevo es del Frente Norte (valores <= 1845)
+                if int(val_desde) <= 1845:
+                    supabase.table("eventos_correa").delete()\
+                        .eq("correa_id", correa_id)\
+                        .eq("nivel", nivel)\
+                        .lte("estacion_desde", 1845).execute()
+                # Si el registro nuevo es del Frente Sur (valores > 1845)
+                else:
+                    supabase.table("eventos_correa").delete()\
+                        .eq("correa_id", correa_id)\
+                        .eq("nivel", nivel)\
+                        .gt("estacion_desde", 1845).execute()
+            else:
+                # Regla estándar para CV005 y CV007 (un solo registro global)
+                supabase.table("eventos_correa").delete().eq("correa_id", correa_id).eq("nivel", nivel).execute()
         except Exception:
             pass
             
@@ -183,7 +199,7 @@ with tabs[0]:
 
 
 # ==========================================
-# PESTAÑA CORREA CV006 (CORREGIDA DINÁMICA)
+# PESTAÑA CORREA CV006 (REACCIÓN E HISTORIAL CORREGIDOS)
 # ==========================================
 with tabs[1]:
     correa_id = "CV006"
@@ -250,7 +266,6 @@ with tabs[1]:
     )
     st.plotly_chart(fig, use_container_width=True, key="gr_06")
 
-    # SOLUCIÓN AQUÍ: El radio button está FUERA de la declaración del formulario para reactividad inmediata
     with st.sidebar.expander(f"📥 Registrar Datos CV006"):
         frente_06 = st.radio(
             "Seleccionar Tramo / Frente:", 
@@ -258,7 +273,6 @@ with tabs[1]:
             key="frente_fuera_06"
         )
         
-        # Generar las listas de opciones reactivamente según el radio button
         if frente_06 == "TP1 hacia Centro (Norte: 3B a 1845)":
             opciones_estaciones = ["3B Carga", "2B Carga", "1B Carga"] + [str(n) for n in range(1, 1846)]
             idx_def_desde = 0
@@ -268,15 +282,14 @@ with tabs[1]:
             idx_def_desde = len(opciones_estaciones) - 1
             idx_def_hasta = 0
 
-        # Ahora sí abrimos el formulario únicamente para capturar el envío
-        with st.form(key="f_06_reactivo"):
-            op = st.text_input("Operador:", key="op06_reac")
-            niv = st.selectbox("Nivel / Condición:", list(DICC_NIVELES.keys()), format_func=lambda x: DICC_NIVELES[x]["nombre"], key="niv06_reac")
+        with st.form(key="f_06_historial"):
+            op = st.text_input("Operador:", key="op06_hist")
+            niv = st.selectbox("Nivel / Condición:", list(DICC_NIVELES.keys()), format_func=lambda x: DICC_NIVELES[x]["nombre"], key="niv06_hist")
             
-            d = st.selectbox("Desde Estación (Punto Lejano):", opciones_estaciones, index=idx_def_desde, key="d06_reac")
-            h = st.selectbox("Hasta Estación (Hacia Centro):", opciones_estaciones, index=idx_def_hasta, key="h06_reac")
+            d = st.selectbox("Desde Estación (Punto Lejano):", opciones_estaciones, index=idx_def_desde, key="d06_hist")
+            h = st.selectbox("Hasta Estación (Hacia Centro):", opciones_estaciones, index=idx_def_hasta, key="h06_hist")
             
-            nota = st.text_input("Nota:", key="nota06_reac")
+            nota = st.text_input("Nota:", key="nota06_hist")
             
             if st.form_submit_button("Guardar Registro CV006"):
                 if op:
@@ -374,4 +387,3 @@ with tabs[2]:
     st.subheader("📋 Historial de Cambios")
     if not df_ev.empty: st.dataframe(df_ev, use_container_width=True)
     else: st.caption("No hay registros guardados para la CV007.")
-
