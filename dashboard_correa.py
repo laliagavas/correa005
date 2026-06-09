@@ -73,14 +73,16 @@ def convertir_a_numero_puro(est_str):
     try: return int(est_str)
     except: return 0
 
-def obtener_metros_reales(num_estacion, correa_id):
-    """Calcula metros acumulados absolutos desde el cero de la izquierda"""
+def obtener_metros_reales(num_estacion, correa_id, nivel):
+    """Calcula metros acumulados absolutos desde el cero izquierdo respetando las constantes físicas por nivel"""
+    factor = 1.5 if int(nivel) == 0 else (17.0 if correa_id == "CV007" else 14.0)
+    
     if correa_id == "CV005":
-        return (3823 - num_estacion) * 1.5
+        return (3823 - num_estacion) * factor
     elif correa_id == "CV006":
-        return (num_estacion - (-3)) * 1.5
+        return (num_estacion - (-3)) * factor
     elif correa_id == "CV007":
-        return (num_estacion - 3) * 1.5
+        return (num_estacion - 3) * factor
     return 0.0
 
 # 4. CARGA DE IMAGEN ÚNICA
@@ -117,10 +119,10 @@ with tabs[0]:
         for _, f in df_ev.iterrows():
             cant_est = abs(int(f["estacion_desde"]) - int(f["estacion_hasta"])) + 1
             if int(f["nivel"]) == 0: metros_troncal_05 += cant_est * 1.5
-            elif int(f["nivel"]) == 5: metros_sensitiva_05 += cant_est * 14
+            elif int(f["nivel"]) == 5: metros_sensitiva_05 += cant_est * 14.0
 
     porc_troncal_05 = min(((metros_troncal_05 / 1.5) / total_estaciones_05) * 100, 100.0) if total_estaciones_05 > 0 else 0
-    porc_sensitiva_05 = min(((metros_sensitiva_05 / 14) / total_estaciones_05) * 100, 100.0) if total_estaciones_05 > 0 else 0
+    porc_sensitiva_05 = min(((metros_sensitiva_05 / 14.0) / total_estaciones_05) * 100, 100.0) if total_estaciones_05 > 0 else 0
 
     with col_grafico:
         fig = go.Figure()
@@ -134,10 +136,9 @@ with tabs[0]:
                     d_num, h_num = int(fila["estacion_desde"]), int(fila["estacion_hasta"])
                     xd, xh = trans_x_05(d_num), trans_x_05(h_num)
                     
-                    m_desde = obtener_metros_reales(d_num, correa_id)
-                    m_hasta = obtener_metros_reales(h_num, correa_id)
+                    m_desde = obtener_metros_reales(d_num, correa_id, niv)
+                    m_hasta = obtener_metros_reales(h_num, correa_id, niv)
                     
-                    # SOLUCCIÓN: Pasamos los metros como listas de coordenadas exactas para cada punto
                     fig.add_trace(go.Scatter(
                         x=[xd, xh], y=[niv, niv], mode="lines+markers", 
                         line=dict(color=DICC_NIVELES[niv]["color"], width=5), marker=dict(size=8), 
@@ -156,7 +157,7 @@ with tabs[0]:
         fig.update_layout(
             xaxis=dict(
                 tickvals=[-1823, -1000, 0, 1000, 1999], 
-                ticktext=["TP1 (3823) [0.0 m]", "3000", "Centro (2000)", "1000", "EM (1) [5734.5 m]"], 
+                ticktext=["TP1 (3823) [0.0 m]", "3000", "Centro (2000)", "1000", "EM (1)"], 
                 gridcolor="rgba(0,0,0,0.1)", tickangle=-45, tickfont=dict(size=12)
             ), 
             yaxis=dict(range=[-1.5, 6.0], dtick=1, tickvals=list(DICC_NIVELES.keys()), ticktext=[n["nombre"] for n in DICC_NIVELES.values()]), 
@@ -190,19 +191,20 @@ with tabs[0]:
 
 
 # ==========================================
-# PESTAÑA CORREA CV006
+# PESTAÑA CORREA CV006 (DIRECCIÓN CORREGIDA)
 # ==========================================
 with tabs[1]:
     correa_id = "CV006"
     df_ev = leer_datos(correa_id)
     st.subheader(f"Estado Actual - {correa_id}")
-    st.caption("Frente Físico: TP1 (3B Carga ➡️ 1845) 🤝 (1846 ⬅️ 3526) TP2")
+    st.caption("Frente Físico: TP1 (3B Carga ➡️ 1845) 🤝 (1846 ➡️ 3526) TP2")
 
     col_grafico_06, col_metricas_06 = st.columns([4, 1])
 
+    # CORRECCIÓN DE ORIENTACIÓN VISUAL: De izquierda a derecha continuo (-3 -> 1845 -> 1846 -> 3526)
     def trans_x_06(est_str):
         n = convertir_a_numero_puro(est_str)
-        return n - 1845 if n <= 1845 else 3526 - n + 1
+        return n  # Retornamos el valor directo lineal para evitar inversiones falsas
 
     total_estaciones_06 = 3526 + 3
     metros_troncal_06, metros_sensitiva_06 = 0, 0
@@ -211,15 +213,15 @@ with tabs[1]:
         for _, f in df_ev.iterrows():
             cant_est = abs(convertir_a_numero_puro(str(f["estacion_desde"])) - convertir_a_numero_puro(str(f["estacion_hasta"]))) + 1
             if int(f["nivel"]) == 0: metros_troncal_06 += cant_est * 1.5
-            elif int(f["nivel"]) == 5: metros_sensitiva_06 += cant_est * 14
+            elif int(f["nivel"]) == 5: metros_sensitiva_06 += cant_est * 14.0
 
     porc_troncal_06 = min(((metros_troncal_06 / 1.5) / total_estaciones_06) * 100, 100.0) if total_estaciones_06 > 0 else 0
-    porc_sensitiva_06 = min(((metros_sensitiva_06 / 14) / total_estaciones_06) * 100, 100.0) if total_estaciones_06 > 0 else 0
+    porc_sensitiva_06 = min(((metros_sensitiva_06 / 14.0) / total_estaciones_06) * 100, 100.0) if total_estaciones_06 > 0 else 0
 
     with col_grafico_06:
         fig = go.Figure()
         if img_base64:
-            fig.add_layout_image(dict(source=f"data:image/png;base64,{img_base64}", xref="x", yref="y", x=-1848, y=-0.7, sizex=1848 + 1681, sizey=1.0, sizing="stretch", opacity=0.9, layer="below"))
+            fig.add_layout_image(dict(source=f"data:image/png;base64,{img_base64}", xref="x", yref="y", x=-3, y=-0.7, sizex=3530, sizey=1.0, sizing="stretch", opacity=0.9, layer="below"))
 
         if not df_ev.empty:
             for _, fila in df_ev.iterrows():
@@ -229,8 +231,8 @@ with tabs[1]:
                     
                     n_d = convertir_a_numero_puro(str(fila["estacion_desde"]))
                     n_h = convertir_a_numero_puro(str(fila["estacion_hasta"]))
-                    m_desde = obtener_metros_reales(n_d, correa_id)
-                    m_hasta = obtener_metros_reales(n_h, correa_id)
+                    m_desde = obtener_metros_reales(n_d, correa_id, niv)
+                    m_hasta = obtener_metros_reales(n_h, correa_id, niv)
                     
                     fig.add_trace(go.Scatter(
                         x=[xd, xh], y=[niv, niv], mode="lines+markers", 
@@ -249,8 +251,8 @@ with tabs[1]:
 
         fig.update_layout(
             xaxis=dict(
-                tickvals=[trans_x_06("3B Carga"), 0, trans_x_06("3526")], 
-                ticktext=["3B Carga (TP1) [0.0 m]", "Centro (1845 | 1846)", "TP2 (3526) [5293.5 m]"], 
+                tickvals=[-3, 1845, 1846, 3526], 
+                ticktext=["3B Carga (TP1) [0.0 m]", "Centro (1845)", "Centro (1846)", "TP2 (3526)"], 
                 gridcolor="rgba(0,0,0,0.1)", tickangle=-45, tickfont=dict(size=12)
             ), 
             yaxis=dict(range=[-1.5, 6.0], dtick=1, tickvals=list(DICC_NIVELES.keys()), ticktext=[n["nombre"] for n in DICC_NIVELES.values()]), 
@@ -268,26 +270,26 @@ with tabs[1]:
         st.metric(label="Sensitiva (Nivel 5)", value=f"{metros_sensitiva_06:.1f} m")
 
     with st.sidebar.expander(f"📥 Registrar Datos CV006"):
-        frente_06 = st.radio("Seleccionar Tramo / Frente:", ["TP1 hacia Centro (Norte: 3B a 1845)", "TP2 hacia Centro (Sur: 3526 a 1846)"], key="frente_fuera_06")
+        frente_06 = st.radio("Seleccionar Tramo / Frente:", ["TP1 hacia Centro (Norte: 3B a 1845)", "TP2 hacia Centro (Sur: 1846 a 3526)"], key="frente_fuera_06")
         if frente_06 == "TP1 hacia Centro (Norte: 3B a 1845)":
             opciones_estaciones = ["3B Carga", "2B Carga", "1B Carga"] + [str(n) for n in range(1, 1846)]
             idx_def_desde, idx_def_hasta = 0, len(opciones_estaciones) - 1
         else:
             opciones_estaciones = [str(n) for n in range(1846, 3527)]
-            idx_def_desde, idx_def_hasta = len(opciones_estaciones) - 1, 0
+            idx_def_desde, idx_def_hasta = 0, len(opciones_estaciones) - 1
 
         with st.form(key="f_06_historial"):
             op = st.text_input("Operador:", key="op06_hist")
-            niv = st.selectbox("Nivel / Condition:", list(DICC_NIVELES.keys()), format_func=lambda x: DICC_NIVELES[x]["nombre"], key="niv06_hist")
-            d = st.selectbox("Desde Estación (Punto Lejano):", opciones_estaciones, index=idx_def_desde, key="d06_hist")
-            h = st.selectbox("Hasta Estación (Hacia Centro):", opciones_estaciones, index=idx_def_hasta, key="h06_hist")
+            niv = st.selectbox("Nivel / Condición:", list(DICC_NIVELES.keys()), format_func=lambda x: DICC_NIVELES[x]["nombre"], key="niv06_hist")
+            d = st.selectbox("Desde Estación:", opciones_estaciones, index=idx_def_desde, key="d06_hist")
+            h = st.selectbox("Hasta Estación:", opciones_estaciones, index=idx_def_hasta, key="h06_hist")
             nota = st.text_input("Nota:", key="nota06_hist")
             if st.form_submit_button("Guardar Registro CV006") and op:
                 if guardar_registro(op, d, h, niv, nota, correa_id): st.rerun()
 
 
 # ==========================================
-# PESTAÑA CORREA CV007
+# PESTAÑA CORREA CV007 (FACTOR 17 METROS APLICADO)
 # ==========================================
 with tabs[2]:
     correa_id = "CV007"
@@ -304,10 +306,10 @@ with tabs[2]:
         for _, f in df_ev.iterrows():
             cant_est = abs(int(f["estacion_desde"]) - int(f["estacion_hasta"])) + 1
             if int(f["nivel"]) == 0: metros_troncal_07 += cant_est * 1.5
-            elif int(f["nivel"]) == 5: metros_sensitiva_07 += cant_est * 1.5 
+            elif int(f["nivel"]) == 5: metros_sensitiva_07 += cant_est * 17.0  # CORRECCIÓN: 17 metros promedio
 
     porc_troncal_07 = min(((metros_troncal_07 / 1.5) / total_estaciones_07) * 100, 100.0) if total_estaciones_07 > 0 else 0
-    porc_sensitiva_07 = min(((metros_sensitiva_07 / 1.5) / total_estaciones_07) * 100, 100.0) if total_estaciones_07 > 0 else 0
+    porc_sensitiva_07 = min(((metros_sensitiva_07 / 17.0) / total_estaciones_07) * 100, 100.0) if total_estaciones_07 > 0 else 0
 
     with col_grafico_07:
         fig = go.Figure()
@@ -320,10 +322,9 @@ with tabs[2]:
                     niv = int(fila["nivel"])
                     xd, xh = int(fila["estacion_desde"]), int(fila["estacion_hasta"])
                     
-                    m_desde = obtener_metros_reales(xd, correa_id)
-                    m_hasta = obtener_metros_reales(xh, correa_id)
+                    m_desde = obtener_metros_reales(xd, correa_id, niv)
+                    m_hasta = obtener_metros_reales(xh, correa_id, niv)
                     
-                    # CORRECCIÓN DEFINITIVA: Mapeo individual de metros por punto del cursor
                     fig.add_trace(go.Scatter(
                         x=[xd, xh], y=[niv, niv], mode="lines+markers", 
                         line=dict(color=DICC_NIVELES[niv]["color"], width=5), marker=dict(size=8), 
@@ -343,7 +344,7 @@ with tabs[2]:
             xaxis=dict(
                 range=[0, 850], 
                 tickvals=[3, 200, 400, 600, 842], 
-                ticktext=["TP2 (Est. 3) [0.0 m]", "200", "400", "600", "Shuttler (Est. 842) [1258.5 m]"], 
+                ticktext=["TP2 (Est. 3) [0.0 m]", "200", "400", "600", "Shuttler (Est. 842)"], 
                 gridcolor="rgba(0,0,0,0.1)", tickangle=-45, tickfont=dict(size=12)
             ), 
             yaxis=dict(range=[-1.5, 6.0], dtick=1, tickvals=list(DICC_NIVELES.keys()), ticktext=[n["nombre"] for n in DICC_NIVELES.values()]), 
