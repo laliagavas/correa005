@@ -73,20 +73,14 @@ def convertir_a_numero_puro(est_str):
     try: return int(est_str)
     except: return 0
 
-# --- NUEVA FUNCIÓN CRÍTICA MATEMÁTICA DE METRAJE ACUMULADO REAL DESDE EL CERO IZQUIERDO ---
-def obtener_metros_reales(estacion_str, correa_id):
-    """Calcula la distancia exacta en metros de una estación medida desde el extremo izquierdo (0.0 m)"""
-    num = convertir_a_numero_puro(str(estacion_str))
+def obtener_metros_reales(num_estacion, correa_id):
+    """Calcula metros acumulados absolutos desde el cero de la izquierda"""
     if correa_id == "CV005":
-        # TP1 (Estación 3823) es el 0.0 m. Avanza bajando hasta 2000, y sigue bajando hacia EM (1).
-        return (3823 - num) * 1.5
+        return (3823 - num_estacion) * 1.5
     elif correa_id == "CV006":
-        # 3B Carga (Valor -3) es el 0.0 m.
-        # -3 (3B) = 0m, -2 (2B) = 1.5m, -1 (1B) = 3.0m, Estación 1 = 4.5m...
-        return (num - (-3)) * 1.5
+        return (num_estacion - (-3)) * 1.5
     elif correa_id == "CV007":
-        # TP2 (Estación 3) es el 0.0 m absoluto.
-        return (num - 3) * 1.5
+        return (num_estacion - 3) * 1.5
     return 0.0
 
 # 4. CARGA DE IMAGEN ÚNICA
@@ -140,16 +134,22 @@ with tabs[0]:
                     d_num, h_num = int(fila["estacion_desde"]), int(fila["estacion_hasta"])
                     xd, xh = trans_x_05(d_num), trans_x_05(h_num)
                     
-                    # CORRECCIÓN MATEMÁTICA: Resta de metros reales acumulados en terreno
                     m_desde = obtener_metros_reales(d_num, correa_id)
                     m_hasta = obtener_metros_reales(h_num, correa_id)
-                    dist_real = abs(m_hasta - m_desde)
                     
+                    # SOLUCCIÓN: Pasamos los metros como listas de coordenadas exactas para cada punto
                     fig.add_trace(go.Scatter(
                         x=[xd, xh], y=[niv, niv], mode="lines+markers", 
                         line=dict(color=DICC_NIVELES[niv]["color"], width=5), marker=dict(size=8), 
-                        hovertext=f"<b>{DICC_NIVELES[niv]['nombre']}</b><br>📍 Tramo: Est. {d_num} ➔ Est. {h_num}<br>📏 Distancia de Tramo: {dist_real:.1f} m<br>👷 Op: {fila['operador']}<br>📝 Nota: {fila['nota']}", 
-                        hoverinfo="text", showlegend=False
+                        customdata=[[d_num, m_desde], [h_num, m_hasta]],
+                        hovertemplate=(
+                            f"<b>{DICC_NIVELES[niv]['nombre']}</b><br>"
+                            "📍 Estación Actual: %{customdata[0]}<br>"
+                            "📏 Ubicación en Metros: %{customdata[1]:.1f} m<br>"
+                            f"👷 Op: {fila['operador']}<br>"
+                            f"📝 Nota: {fila['nota']}<extra></extra>"
+                        ),
+                        showlegend=False
                     ))
                 except: pass
 
@@ -185,8 +185,8 @@ with tabs[0]:
                 d = st.number_input("Desde Estación (Punto Lejano):", 1, 2000, 1, key="d05_s")
                 h = st.number_input("Hasta Estación (Hacia Centro 2000):", 1, 2000, 2000, key="h05_s")
             nota = st.text_input("Nota:", key="nota05")
-            if st.form_submit_button("Guardar Registro CV005"):
-                if op and guardar_registro(op, d, h, niv, nota, correa_id): st.rerun()
+            if st.form_submit_button("Guardar Registro CV005") and op:
+                if guardar_registro(op, d, h, niv, nota, correa_id): st.rerun()
 
 
 # ==========================================
@@ -227,16 +227,23 @@ with tabs[1]:
                     niv = int(fila["nivel"])
                     xd, xh = trans_x_06(str(fila["estacion_desde"])), trans_x_06(str(fila["estacion_hasta"]))
                     
-                    # CORRECCIÓN MATEMÁTICA: Distancia basada en metros reales acumulados desde la estación base
-                    m_desde = obtener_metros_reales(str(fila["estacion_desde"]), correa_id)
-                    m_hasta = obtener_metros_reales(str(fila["estacion_hasta"]), correa_id)
-                    dist_real = abs(m_hasta - m_desde)
+                    n_d = convertir_a_numero_puro(str(fila["estacion_desde"]))
+                    n_h = convertir_a_numero_puro(str(fila["estacion_hasta"]))
+                    m_desde = obtener_metros_reales(n_d, correa_id)
+                    m_hasta = obtener_metros_reales(n_h, correa_id)
                     
                     fig.add_trace(go.Scatter(
                         x=[xd, xh], y=[niv, niv], mode="lines+markers", 
                         line=dict(color=DICC_NIVELES[niv]["color"], width=5), marker=dict(size=8), 
-                        hovertext=f"<b>{DICC_NIVELES[niv]['nombre']}</b><br>📍 Tramo: {fila['estacion_desde']} ➔ {fila['estacion_hasta']}<br>📏 Distancia de Tramo: {dist_real:.1f} m<br>👷 Op: {fila['operador']}<br>📝 Nota: {fila['nota']}", 
-                        hoverinfo="text", showlegend=False
+                        customdata=[[fila['estacion_desde'], m_desde], [fila['estacion_hasta'], m_hasta]],
+                        hovertemplate=(
+                            f"<b>{DICC_NIVELES[niv]['nombre']}</b><br>"
+                            "📍 Estación Actual: %{customdata[0]}<br>"
+                            "📏 Ubicación en Metros: %{customdata[1]:.1f} m<br>"
+                            f"👷 Op: {fila['operador']}<br>"
+                            f"📝 Nota: {fila['nota']}<extra></extra>"
+                        ),
+                        showlegend=False
                     ))
                 except: pass
 
@@ -271,7 +278,7 @@ with tabs[1]:
 
         with st.form(key="f_06_historial"):
             op = st.text_input("Operador:", key="op06_hist")
-            niv = st.selectbox("Nivel / Condición:", list(DICC_NIVELES.keys()), format_func=lambda x: DICC_NIVELES[x]["nombre"], key="niv06_hist")
+            niv = st.selectbox("Nivel / Condition:", list(DICC_NIVELES.keys()), format_func=lambda x: DICC_NIVELES[x]["nombre"], key="niv06_hist")
             d = st.selectbox("Desde Estación (Punto Lejano):", opciones_estaciones, index=idx_def_desde, key="d06_hist")
             h = st.selectbox("Hasta Estación (Hacia Centro):", opciones_estaciones, index=idx_def_hasta, key="h06_hist")
             nota = st.text_input("Nota:", key="nota06_hist")
@@ -313,17 +320,22 @@ with tabs[2]:
                     niv = int(fila["nivel"])
                     xd, xh = int(fila["estacion_desde"]), int(fila["estacion_hasta"])
                     
-                    # CORRECCIÓN MATEMÁTICA DEFINITIVA PARA CV007:
-                    # Restamos los metros acumulados desde el origen real (Estación 3 = 0.0 m)
                     m_desde = obtener_metros_reales(xd, correa_id)
                     m_hasta = obtener_metros_reales(xh, correa_id)
-                    dist_real = abs(m_hasta - m_desde)
                     
+                    # CORRECCIÓN DEFINITIVA: Mapeo individual de metros por punto del cursor
                     fig.add_trace(go.Scatter(
                         x=[xd, xh], y=[niv, niv], mode="lines+markers", 
                         line=dict(color=DICC_NIVELES[niv]["color"], width=5), marker=dict(size=8), 
-                        hovertext=f"<b>{DICC_NIVELES[niv]['nombre']}</b><br>📍 Tramo: Est. {xd} ➔ Est. {xh}<br>📏 Distancia de Tramo: {dist_real:.1f} m<br>👷 Op: {fila['operador']}<br>📝 Nota: {fila['nota']}", 
-                        hoverinfo="text", showlegend=False
+                        customdata=[[xd, m_desde], [xh, m_hasta]],
+                        hovertemplate=(
+                            f"<b>{DICC_NIVELES[niv]['nombre']}</b><br>"
+                            "📍 Estación Actual: Est. %{customdata[0]}<br>"
+                            "📏 Ubicación en Metros: %{customdata[1]:.1f} m<br>"
+                            f"👷 Op: {fila['operador']}<br>"
+                            f"📝 Nota: {fila['nota']}<extra></extra>"
+                        ),
+                        showlegend=False
                     ))
                 except: pass
 
