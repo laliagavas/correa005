@@ -147,17 +147,18 @@ with tabs[0]:
                     niv = int(fila["nivel"])
                     d_num, h_num = int(fila["estacion_desde"]), int(fila["estacion_hasta"])
                     xd, xh = trans_x_05(d_num), trans_x_05(h_num)
-                    dist = (abs(d_num - h_num) + 1) * (1.5 if niv == 0 else (14 if niv == 5 else 1.5))
+                    
+                    # CORRECCIÓN: Distancia real del segmento individual recalculada correctamente
+                    dist = abs(d_num - h_num) * (1.5 if niv == 0 else (14 if niv == 5 else 1.5))
                     
                     fig.add_trace(go.Scatter(
                         x=[xd, xh], y=[niv, niv], mode="lines+markers", 
                         line=dict(color=DICC_NIVELES[niv]["color"], width=5), marker=dict(size=8), 
-                        hovertext=f"<b>{DICC_NIVELES[niv]['nombre']}</b><br>📍 Tramo: Est. {d_num} ➔ Est. {h_num}<br>📏 Distancia: {dist:.1f} m<br>👷 Op: {fila['operador']}<br>📝 Nota: {fila['nota']}", 
+                        hovertext=f"<b>{DICC_NIVELES[niv]['nombre']}</b><br>📍 Tramo: Est. {d_num} ➔ Est. {h_num}<br>📏 Distancia de Tramo: {dist:.1f} m<br>👷 Op: {fila['operador']}<br>📝 Nota: {fila['nota']}", 
                         hoverinfo="text", showlegend=False
                     ))
                 except: pass
 
-        # Eje X con metrajes explícitos en los extremos para CV005
         fig.update_layout(
             xaxis=dict(
                 tickvals=[-1823, -1000, 0, 1000, 1999], 
@@ -207,7 +208,7 @@ with tabs[0]:
 
 
 # ==========================================
-# PESTAÑA CORREA CV006 (CENTRO UNIFICADO Y METRAJES EN EXTREMOS)
+# PESTAÑA CORREA CV006
 # ==========================================
 with tabs[1]:
     correa_id = "CV006"
@@ -253,17 +254,18 @@ with tabs[1]:
                     xd, xh = trans_x_06(str(fila["estacion_desde"])), trans_x_06(str(fila["estacion_hasta"]))
                     n_d = convertir_a_numero_puro(str(fila["estacion_desde"]))
                     n_h = convertir_a_numero_puro(str(fila["estacion_hasta"]))
-                    dist = (abs(n_d - n_h) + 1) * (1.5 if niv == 0 else (14 if niv == 5 else 1.5))
+                    
+                    # CORRECCIÓN: Distancia calculada con la longitud exacta del tramo
+                    dist = abs(n_d - n_h) * (1.5 if niv == 0 else (14 if niv == 5 else 1.5))
                     
                     fig.add_trace(go.Scatter(
                         x=[xd, xh], y=[niv, niv], mode="lines+markers", 
                         line=dict(color=DICC_NIVELES[niv]["color"], width=5), marker=dict(size=8), 
-                        hovertext=f"<b>{DICC_NIVELES[niv]['nombre']}</b><br>📍 Tramo: {fila['estacion_desde']} ➔ {fila['estacion_hasta']}<br>📏 Distancia: {dist:.1f} m<br>👷 Op: {fila['operador']}<br>📝 Nota: {fila['nota']}", 
+                        hovertext=f"<b>{DICC_NIVELES[niv]['nombre']}</b><br>📍 Tramo: {fila['estacion_desde']} ➔ {fila['estacion_hasta']}<br>📏 Distancia de Tramo: {dist:.1f} m<br>👷 Op: {fila['operador']}<br>📝 Nota: {fila['nota']}", 
                         hoverinfo="text", showlegend=False
                     ))
                 except: pass
 
-        # Corrección: Unificación del punto central '1845 | 1846' para evitar encimarse y metraje en puntas
         fig.update_layout(
             xaxis=dict(
                 tickvals=[trans_x_06("3B Carga"), 0, trans_x_06("3526")], 
@@ -325,7 +327,7 @@ with tabs[1]:
 
 
 # ==========================================
-# PESTAÑA CORREA CV007 (MÉTRICA DE EXTREMO REPARADA)
+# PESTAÑA CORREA CV007
 # ==========================================
 with tabs[2]:
     correa_id = "CV007"
@@ -361,17 +363,18 @@ with tabs[2]:
                 try:
                     niv = int(fila["nivel"])
                     xd, xh = int(fila["estacion_desde"]), int(fila["estacion_hasta"])
-                    dist = (abs(xd - xh) + 1) * (1.5 if niv == 0 else (17 if niv == 5 else 1.5))
+                    
+                    # CORRECCIÓN: Cálculo de distancia por tramo sin distorsión global
+                    dist = abs(xd - xh) * (1.5 if niv == 0 else (17 if niv == 5 else 1.5))
                     
                     fig.add_trace(go.Scatter(
                         x=[xd, xh], y=[niv, niv], mode="lines+markers", 
                         line=dict(color=DICC_NIVELES[niv]["color"], width=5), marker=dict(size=8), 
-                        hovertext=f"<b>{DICC_NIVELES[niv]['nombre']}</b><br>📍 Tramo: Est. {xd} ➔ Est. {xh}<br>📏 Distancia: {dist:.1f} m<br>👷 Op: {fila['operador']}<br>📝 Nota: {fila['nota']}", 
+                        hovertext=f"<b>{DICC_NIVELES[niv]['nombre']}</b><br>📍 Tramo: Est. {xd} ➔ Est. {xh}<br>📏 Distancia de Tramo: {dist:.1f} m<br>👷 Op: {fila['operador']}<br>📝 Nota: {fila['nota']}", 
                         hoverinfo="text", showlegend=False
                     ))
                 except: pass
 
-        # Eje X con metrajes explícitos en los extremos para CV007
         fig.update_layout(
             xaxis=dict(
                 range=[0, 850], 
