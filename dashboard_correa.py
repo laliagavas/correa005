@@ -352,12 +352,19 @@ with tabs[2]:
 # ==========================================
 # HISTORIAL CONSOLIDADO DE REGISTROS DE CAMPO
 # ==========================================
-st.markdown("### 📋 Historial de Registros")
+st.markdown("### 📋 Historial Consolidado de Registros de Campo")
 
 lista_dfs = [df for df in dict_dfs.values() if not df.empty]
 if lista_dfs:
     df_total = pd.concat(lista_dfs, ignore_index=True)
     df_total["nivel"] = df_total["nivel"].apply(lambda x: DICC_NIVELES.get(int(x), {"nombre": str(x)})["nombre"])
+    
+    # 🇨🇱 CORRECCIÓN DE HORA: Aseguramos UTC y convertimos al huso horario de Chile
+    df_total["created_at"] = (
+        pd.to_datetime(df_total["created_at"], utc=True)
+        .dt.tz_convert("America/Santiago")
+        .dt.strftime('%d-%m-%Y %H:%M')
+    )
     
     st.dataframe(
         df_total[["correa_id", "operador", "estacion_desde", "estacion_hasta", "nivel", "nota", "created_at"]]
