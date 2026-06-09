@@ -25,8 +25,8 @@ MAPEO_NUM_A_LETRAS = {-3: "3B Carga", -2: "2B Carga", -1: "1B Carga"}
 
 # DICCIONARIO EXCLUSIVO: Solo los dos niveles validados
 DICC_NIVELES = {
-    0: {"nombre": "Nivel 0: Fibra Óptica Troncal", "color": "red"},
-    5: {"nombre": "Nivel 5: Fibra Óptica Sensitiva monitoreada", "color": "purple"}
+    0: {"nombre": "Fibra Óptica Troncal", "color": "red"},
+    5: {"nombre": "Fibra Óptica Sensitiva monitoreada", "color": "purple"}
 }
 
 # 3. FUNCIONES DE BASE DE DATOS Y CONVERSIÓN
@@ -98,7 +98,7 @@ with tabs[0]:
     correa_id = "CV005"
     df_ev = leer_datos(correa_id)
     st.subheader(f"Estado Actual - {correa_id}")
-    st.caption("Frente Físico: TP1 (Estación 3823) ➡️ Centro (Estación 2000) ⬅️ EM (Estación 1)")
+    st.caption("TP1 (Estación 3823) ➡️ Centro (Estación 2000) ⬅️ EM (Estación 1)")
     
     col_grafico, col_metricas = st.columns([4, 1])
 
@@ -209,7 +209,7 @@ with tabs[1]:
     correa_id = "CV006"
     df_ev = leer_datos(correa_id)
     st.subheader(f"Estado Actual - {correa_id}")
-    st.caption("Frente Físico: TP1 (3B Carga ➡️ 1845) 🤝 (1846 ➡️ 3526) TP2")
+    st.caption("TP1 (3B Carga ➡️ 1845) | (1846 ➡️ 3526) TP2")
 
     col_grafico_06, col_metricas_06 = st.columns([4, 1])
 
@@ -323,7 +323,7 @@ with tabs[2]:
     correa_id = "CV007"
     df_ev = leer_datos(correa_id)
     st.subheader(f"Estado Actual - {correa_id}")
-    st.caption("Línea Recta Continua: TP2 (Estación 3) ➡️ Shuttler (Estación 842)")
+    st.caption("TP2 (Estación 3) ➡️ Shuttler (Estación 842)")
 
     col_grafico_07, col_metricas_07 = st.columns([4, 1])
 
