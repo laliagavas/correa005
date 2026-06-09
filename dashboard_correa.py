@@ -49,24 +49,21 @@ def guardar_registro(operador, desde, hasta, nivel, nota, correa_id):
     val_desde = MAPEO_LETRAS_A_NUM.get(desde, desde)
     val_hasta = MAPEO_LETRAS_A_NUM.get(hasta, hasta)
     
-    # LIMPIEZA INTELIGENTE EVITA SOBREESCRITURAS CRUZADAS
+    # LIMPIEZA INTELIGENTE POR FRENTES
     if nivel in [0, 5]:
         try:
             if correa_id == "CV006":
-                # Si el registro nuevo es del Frente Norte (valores <= 1845)
                 if int(val_desde) <= 1845:
                     supabase.table("eventos_correa").delete()\
                         .eq("correa_id", correa_id)\
                         .eq("nivel", nivel)\
                         .lte("estacion_desde", 1845).execute()
-                # Si el registro nuevo es del Frente Sur (valores > 1845)
                 else:
                     supabase.table("eventos_correa").delete()\
                         .eq("correa_id", correa_id)\
                         .eq("nivel", nivel)\
                         .gt("estacion_desde", 1845).execute()
             else:
-                # Regla estándar para CV005 y CV007 (un solo registro global)
                 supabase.table("eventos_correa").delete().eq("correa_id", correa_id).eq("nivel", nivel).execute()
         except Exception:
             pass
@@ -118,6 +115,8 @@ with tabs[0]:
     st.subheader(f"Estado Actual - {correa_id}")
     st.caption("Frente Físico: TP1 (Estación 3823) ➡️ Centro (Estación 2000) ⬅️ EM (Estación 1)")
     
+    col_grafico, col_metricas = st.columns([4, 1])
+
     def trans_x_05(est):
         e = int(est)
         return -(e - 2000) if e >= 2000 else (2000 - e)
@@ -138,35 +137,48 @@ with tabs[0]:
     porc_troncal_05 = min(((metros_troncal_05 / 1.5) / total_estaciones_05) * 100, 100.0) if total_estaciones_05 > 0 else 0
     porc_sensitiva_05 = min(((metros_sensitiva_05 / 14) / total_estaciones_05) * 100, 100.0) if total_estaciones_05 > 0 else 0
 
-    fig = go.Figure()
-    if img_base64:
-        fig.add_layout_image(dict(source=f"data:image/png;base64,{img_base64}", xref="x", yref="y", x=-1823, y=-0.7, sizex=3823, sizey=1.0, sizing="stretch", opacity=0.9, layer="below"))
+    with col_grafico:
+        fig = go.Figure()
+        if img_base64:
+            fig.add_layout_image(dict(source=f"data:image/png;base64,{img_base64}", xref="x", yref="y", x=-1823, y=-0.7, sizex=3823, sizey=1.0, sizing="stretch", opacity=0.9, layer="below"))
 
-    if not df_ev.empty:
-        for _, fila in df_ev.iterrows():
-            try:
-                niv = int(fila["nivel"])
-                d_num, h_num = int(fila["estacion_desde"]), int(fila["estacion_hasta"])
-                xd, xh = trans_x_05(d_num), trans_x_05(h_num)
-                dist = (abs(d_num - h_num) + 1) * (1.5 if niv == 0 else (14 if niv == 5 else 1.5))
-                
-                fig.add_trace(go.Scatter(
-                    x=[xd, xh], y=[niv, niv], mode="lines+markers+text", 
-                    line=dict(color=DICC_NIVELES[niv]["color"], width=5), marker=dict(size=8), 
-                    text=[f"Est. {d_num}", f"Est. {h_num}"], textposition="top center",
-                    hovertext=f"Op: {fila['operador']}<br>Tramo: {dist:.1f} m", hoverinfo="text", showlegend=False
-                ))
-            except: pass
+        if not df_ev.empty:
+            for _, fila in df_ev.iterrows():
+                try:
+                    niv = int(fila["nivel"])
+                    d_num, h_num = int(fila["estacion_desde"]), int(fila["estacion_hasta"])
+                    xd, xh = trans_x_05(d_num), trans_x_05(h_num)
+                    dist = (abs(d_num - h_num) + 1) * (1.5 if niv == 0 else (14 if niv == 5 else 1.5))
+                    
+                    fig.add_trace(go.Scatter(
+                        x=[xd, xh], y=[niv, niv], mode="lines+markers+text", 
+                        line=dict(color=DICC_NIVELES[niv]["color"], width=5), marker=dict(size=8), 
+                        text=[f"Est. {d_num}", f"Est. {h_num}"], textposition="top center",
+                        hovertext=f"Op: {fila['operador']}<br>Tramo: {dist:.1f} m", hoverinfo="text", showlegend=False
+                    ))
+                except: pass
 
-    texto_avance_05 = f"<span style='font-size:14px;'><b>📊 AVANCE GENERAL CV005</b><br><br>🔴 Troncal: <b>{porc_troncal_05:.1f}%</b><br>🟣 Sensitiva: <b>{porc_sensitiva_05:.1f}%</b></span>"
+        fig.update_layout(
+            xaxis=dict(
+                tickvals=[-1823, -1000, 0, 1000, 1999], 
+                ticktext=["TP1 (3823)", "3000", "Centro (2000)", "1000", "EM (1)"], 
+                gridcolor="rgba(0,0,0,0.1)",
+                tickangle=-45,
+                tickfont=dict(size=12)
+            ), 
+            yaxis=dict(range=[-1.5, 6.0], dtick=1, tickvals=list(DICC_NIVELES.keys()), ticktext=[n["nombre"] for n in DICC_NIVELES.values()]), 
+            margin=dict(l=50, r=50, t=30, b=100), height=550
+        )
+        st.plotly_chart(fig, use_container_width=True, key="gr_05")
 
-    fig.update_layout(
-        xaxis=dict(tickvals=[-1823, -1000, 0, 1000, 1999], ticktext=["TP1 (3823)", "3000", "Centro (2000)", "1000", "EM (1)"], gridcolor="rgba(0,0,0,0.1)"), 
-        yaxis=dict(range=[-2.2, 6.2], dtick=1, tickvals=list(DICC_NIVELES.keys()), ticktext=[n["nombre"] for n in DICC_NIVELES.values()]), 
-        margin=dict(l=50, r=340, t=30, b=100), height=550,
-        annotations=[dict(xref="paper", yref="paper", x=1.05, y=0.5, showarrow=False, align="left", text=texto_avance_05, bgcolor="white", bordercolor="gray", borderwidth=1, borderpad=12)]
-    )
-    st.plotly_chart(fig, use_container_width=True, key="gr_05")
+    with col_metricas:
+        st.markdown("### 📊 Avance General")
+        st.metric(label="🔴 Avance Troncal", value=f"{porc_troncal_05:.1f}%")
+        st.metric(label="🟣 Avance Sensitiva", value=f"{porc_sensitiva_05:.1f}%")
+        st.markdown("---")
+        st.markdown("### 📏 Metraje")
+        st.metric(label="Troncal (Nivel 0)", value=f"{metros_troncal_05:.1f} m")
+        st.metric(label="Sensitiva (Nivel 5)", value=f"{metros_sensitiva_05:.1f} m")
 
     with st.sidebar.expander(f"📥 Registrar Datos CV005"):
         with st.form(key="f_05"):
@@ -187,11 +199,6 @@ with tabs[0]:
                     if guardar_registro(op, d, h, niv, nota, correa_id):
                         st.rerun()
                 else: st.error("Falta ingresar Operador.")
-                
-    st.markdown("### 📏 Metraje Consolidado")
-    c1, c2 = st.columns(2)
-    c1.metric(label="Fibra Óptica Troncal (Nivel 0)", value=f"{metros_troncal_05:.1f} m")
-    c2.metric(label="Fibra Óptica Sensitiva (Nivel 5)", value=f"{metros_sensitiva_05:.1f} m")
 
     st.subheader("📋 Historial de Cambios")
     if not df_ev.empty: st.dataframe(df_ev, use_container_width=True)
@@ -199,13 +206,15 @@ with tabs[0]:
 
 
 # ==========================================
-# PESTAÑA CORREA CV006 (REACCIÓN E HISTORIAL CORREGIDOS)
+# PESTAÑA CORREA CV006
 # ==========================================
 with tabs[1]:
     correa_id = "CV006"
     df_ev = leer_datos(correa_id)
     st.subheader(f"Estado Actual - {correa_id}")
     st.caption("Frente Físico: TP1 (3B Carga ➡️ 1845) 🤝 (1846 ⬅️ 3526) TP2")
+
+    col_grafico_06, col_metricas_06 = st.columns([4, 1])
 
     def trans_x_06(est_str):
         n = convertir_a_numero_puro(est_str)
@@ -231,40 +240,49 @@ with tabs[1]:
     porc_troncal_06 = min(((metros_troncal_06 / 1.5) / total_estaciones_06) * 100, 100.0) if total_estaciones_06 > 0 else 0
     porc_sensitiva_06 = min(((metros_sensitiva_06 / 14) / total_estaciones_06) * 100, 100.0) if total_estaciones_06 > 0 else 0
 
-    fig = go.Figure()
-    if img_base64:
-        fig.add_layout_image(dict(source=f"data:image/png;base64,{img_base64}", xref="x", yref="y", x=-1848, y=-0.7, sizex=1848 + 1681, sizey=1.0, sizing="stretch", opacity=0.9, layer="below"))
+    with col_grafico_06:
+        fig = go.Figure()
+        if img_base64:
+            fig.add_layout_image(dict(source=f"data:image/png;base64,{img_base64}", xref="x", yref="y", x=-1848, y=-0.7, sizex=1848 + 1681, sizey=1.0, sizing="stretch", opacity=0.9, layer="below"))
 
-    if not df_ev.empty:
-        for _, fila in df_ev.iterrows():
-            try:
-                niv = int(fila["nivel"])
-                xd, xh = trans_x_06(str(fila["estacion_desde"])), trans_x_06(str(fila["estacion_hasta"]))
-                n_d = convertir_a_numero_puro(str(fila["estacion_desde"]))
-                n_h = convertir_a_numero_puro(str(fila["estacion_hasta"]))
-                dist = (abs(n_d - n_h) + 1) * (1.5 if niv == 0 else (14 if niv == 5 else 1.5))
-                
-                fig.add_trace(go.Scatter(
-                    x=[xd, xh], y=[niv, niv], mode="lines+markers+text", 
-                    line=dict(color=DICC_NIVELES[niv]["color"], width=5), marker=dict(size=8), 
-                    text=[f"{fila['estacion_desde']}", f"{fila['estacion_hasta']}"], textposition="top center",
-                    hovertext=f"Op: {fila['operador']}<br>Tramo: {dist:.1f} m", hoverinfo="text", showlegend=False
-                ))
-            except: pass
+        if not df_ev.empty:
+            for _, fila in df_ev.iterrows():
+                try:
+                    niv = int(fila["nivel"])
+                    xd, xh = trans_x_06(str(fila["estacion_desde"])), trans_x_06(str(fila["estacion_hasta"]))
+                    n_d = convertir_a_numero_puro(str(fila["estacion_desde"]))
+                    n_h = convertir_a_numero_puro(str(fila["estacion_hasta"]))
+                    dist = (abs(n_d - n_h) + 1) * (1.5 if niv == 0 else (14 if niv == 5 else 1.5))
+                    
+                    fig.add_trace(go.Scatter(
+                        x=[xd, xh], y=[niv, niv], mode="lines+markers+text", 
+                        line=dict(color=DICC_NIVELES[niv]["color"], width=5), marker=dict(size=8), 
+                        text=[f"{fila['estacion_desde']}", f"{fila['estacion_hasta']}"], textposition="top center",
+                        hovertext=f"Op: {fila['operador']}<br>Tramo: {dist:.1f} m", hoverinfo="text", showlegend=False
+                    ))
+                except: pass
 
-    texto_avance_06 = f"<span style='font-size:14px;'><b>📊 AVANCE GENERAL CV006</b><br><br>🔴 Troncal: <b>{porc_troncal_06:.1f}%</b><br>🟣 Sensitiva: <b>{porc_sensitiva_06:.1f}%</b></span>"
+        fig.update_layout(
+            xaxis=dict(
+                tickvals=[trans_x_06("3B Carga"), trans_x_06("1"), trans_x_06("1845"), trans_x_06("1846"), trans_x_06("3526")], 
+                ticktext=["3B Carga (TP1)", "Est. 1", "Centro (1845)", "Centro (1846)", "TP2 (3526)"], 
+                gridcolor="rgba(0,0,0,0.1)",
+                tickangle=-45,
+                tickfont=dict(size=12)
+            ), 
+            yaxis=dict(range=[-1.5, 6.0], dtick=1, tickvals=list(DICC_NIVELES.keys()), ticktext=[n["nombre"] for n in DICC_NIVELES.values()]), 
+            margin=dict(l=50, r=50, t=30, b=100), height=550
+        )
+        st.plotly_chart(fig, use_container_width=True, key="gr_06")
 
-    fig.update_layout(
-        xaxis=dict(
-            tickvals=[trans_x_06("3B Carga"), trans_x_06("1"), trans_x_06("1845"), trans_x_06("1846"), trans_x_06("3526")], 
-            ticktext=["3B Carga (TP1)", "Est. 1", "Centro (1845)", "Centro (1846)", "TP2 (3526)"], 
-            gridcolor="rgba(0,0,0,0.1)"
-        ), 
-        yaxis=dict(range=[-2.2, 6.2], dtick=1, tickvals=list(DICC_NIVELES.keys()), ticktext=[n["nombre"] for n in DICC_NIVELES.values()]), 
-        margin=dict(l=50, r=340, t=30, b=100), height=550,
-        annotations=[dict(xref="paper", yref="paper", x=1.05, y=0.5, showarrow=False, align="left", text=texto_avance_06, bgcolor="white", bordercolor="gray", borderwidth=1, borderpad=12)]
-    )
-    st.plotly_chart(fig, use_container_width=True, key="gr_06")
+    with col_metricas_06:
+        st.markdown("### 📊 Avance General")
+        st.metric(label="🔴 Avance Troncal", value=f"{porc_troncal_06:.1f}%")
+        st.metric(label="🟣 Avance Sensitiva", value=f"{porc_sensitiva_06:.1f}%")
+        st.markdown("---")
+        st.markdown("### 📏 Metraje")
+        st.metric(label="Troncal (Nivel 0)", value=f"{metros_troncal_06:.1f} m")
+        st.metric(label="Sensitiva (Nivel 5)", value=f"{metros_sensitiva_06:.1f} m")
 
     with st.sidebar.expander(f"📥 Registrar Datos CV006"):
         frente_06 = st.radio(
@@ -298,16 +316,9 @@ with tabs[1]:
                 else: 
                     st.error("Falta ingresar el nombre del Operador.")
                 
-    st.markdown("### 📏 Metraje Consolidado")
-    c1, c2 = st.columns(2)
-    c1.metric(label="Fibra Óptica Troncal (Nivel 0)", value=f"{metros_troncal_06:.1f} m")
-    c2.metric(label="Fibra Óptica Sensitiva (Nivel 5)", value=f"{metros_sensitiva_06:.1f} m")
-
     st.subheader("📋 Historial de Cambios")
-    if not df_ev.empty: 
-        st.dataframe(df_ev, use_container_width=True)
-    else: 
-        st.caption("No hay registros guardados para la CV006.")
+    if not df_ev.empty: st.dataframe(df_ev, use_container_width=True)
+    else: st.caption("No hay registros guardados para la CV006.")
 
 
 # ==========================================
@@ -318,6 +329,8 @@ with tabs[2]:
     df_ev = leer_datos(correa_id)
     st.subheader(f"Estado Actual - {correa_id}")
     st.caption("Línea Recta Continua: TP2 (Estación 3) ➡️ Shuttler (Estación 842)")
+
+    col_grafico_07, col_metricas_07 = st.columns([4, 1])
 
     total_estaciones_07 = 842 - 3 + 1
     metros_troncal_07 = 0
@@ -335,34 +348,48 @@ with tabs[2]:
     porc_troncal_07 = min(((metros_troncal_07 / 1.5) / total_estaciones_07) * 100, 100.0) if total_estaciones_07 > 0 else 0
     porc_sensitiva_07 = min(((metros_sensitiva_07 / 17) / total_estaciones_07) * 100, 100.0) if total_estaciones_07 > 0 else 0
 
-    fig = go.Figure()
-    if img_base64:
-        fig.add_layout_image(dict(source=f"data:image/png;base64,{img_base64}", xref="x", yref="y", x=3, y=-0.7, sizex=(842 - 3) * 2, sizey=1.0, sizing="stretch", opacity=0.9, layer="below"))
+    with col_grafico_07:
+        fig = go.Figure()
+        if img_base64:
+            fig.add_layout_image(dict(source=f"data:image/png;base64,{img_base64}", xref="x", yref="y", x=3, y=-0.7, sizex=(842 - 3) * 2, sizey=1.0, sizing="stretch", opacity=0.9, layer="below"))
 
-    if not df_ev.empty:
-        for _, fila in df_ev.iterrows():
-            try:
-                niv = int(fila["nivel"])
-                xd, xh = int(fila["estacion_desde"]), int(fila["estacion_hasta"])
-                dist = (abs(xd - xh) + 1) * (1.5 if niv == 0 else (17 if niv == 5 else 1.5))
-                
-                fig.add_trace(go.Scatter(
-                    x=[xd, xh], y=[niv, niv], mode="lines+markers+text", 
-                    line=dict(color=DICC_NIVELES[niv]["color"], width=5), marker=dict(size=8), 
-                    text=[f"Est. {xd}", f"Est. {xh}"], textposition="top center",
-                    hovertext=f"Op: {fila['operador']}<br>Tramo: {dist:.1f} m", hoverinfo="text", showlegend=False
-                ))
-            except: pass
+        if not df_ev.empty:
+            for _, fila in df_ev.iterrows():
+                try:
+                    niv = int(fila["nivel"])
+                    xd, xh = int(fila["estacion_desde"]), int(fila["estacion_hasta"])
+                    dist = (abs(xd - xh) + 1) * (1.5 if niv == 0 else (17 if niv == 5 else 1.5))
+                    
+                    fig.add_trace(go.Scatter(
+                        x=[xd, xh], y=[niv, niv], mode="lines+markers+text", 
+                        line=dict(color=DICC_NIVELES[niv]["color"], width=5), marker=dict(size=8), 
+                        text=[f"Est. {xd}", f"Est. {xh}"], textposition="top center",
+                        hovertext=f"Op: {fila['operador']}<br>Tramo: {dist:.1f} m", hoverinfo="text", showlegend=False
+                    ))
+                except: pass
 
-    texto_avance_07 = f"<span style='font-size:14px;'><b>📊 AVANCE GENERAL CV007</b><br><br>🔴 Troncal: <b>{porc_troncal_07:.1f}%</b><br>🟣 Sensitiva: <b>{porc_sensitiva_07:.1f}%</b></span>"
+        fig.update_layout(
+            xaxis=dict(
+                range=[0, 850], 
+                tickvals=[3, 200, 400, 600, 842], 
+                ticktext=["TP2 (Est. 3)", "200", "400", "600", "Shuttler (Est. 842)"], 
+                gridcolor="rgba(0,0,0,0.1)",
+                tickangle=-45,
+                tickfont=dict(size=12)
+            ), 
+            yaxis=dict(range=[-1.5, 6.0], dtick=1, tickvals=list(DICC_NIVELES.keys()), ticktext=[n["nombre"] for n in DICC_NIVELES.values()]), 
+            margin=dict(l=50, r=50, t=30, b=100), height=550
+        )
+        st.plotly_chart(fig, use_container_width=True, key="gr_07")
 
-    fig.update_layout(
-        xaxis=dict(range=[0, 850], tickvals=[3, 200, 400, 600, 842], ticktext=["TP2 (Est. 3)", "200", "400", "600", "Shuttler (Est. 842)"], gridcolor="rgba(0,0,0,0.1)"), 
-        yaxis=dict(range=[-2.2, 6.2], dtick=1, tickvals=list(DICC_NIVELES.keys()), ticktext=[n["nombre"] for n in DICC_NIVELES.values()]), 
-        margin=dict(l=50, r=340, t=30, b=100), height=550,
-        annotations=[dict(xref="paper", yref="paper", x=1.05, y=0.5, showarrow=False, align="left", text=texto_avance_07, bgcolor="white", bordercolor="gray", borderwidth=1, borderpad=12)]
-    )
-    st.plotly_chart(fig, use_container_width=True, key="gr_07")
+    with col_metricas_07:
+        st.markdown("### 📊 Avance General")
+        st.metric(label="🔴 Avance Troncal", value=f"{porc_troncal_07:.1f}%")
+        st.metric(label="🟣 Avance Sensitiva", value=f"{porc_sensitiva_07:.1f}%")
+        st.markdown("---")
+        st.markdown("### 📏 Metraje")
+        st.metric(label="Troncal (Nivel 0)", value=f"{metros_troncal_07:.1f} m")
+        st.metric(label="Sensitiva (Nivel 5)", value=f"{metros_sensitiva_07:.1f} m")
 
     with st.sidebar.expander(f"📥 Registrar Datos CV007"):
         with st.form(key="f_07"):
@@ -379,11 +406,6 @@ with tabs[2]:
                         st.rerun()
                 else: st.error("Falta ingresar Operador.")
                 
-    st.markdown("### 📏 Metraje Consolidado")
-    c1, c2 = st.columns(2)
-    c1.metric(label="Fibra Óptica Troncal (Nivel 0)", value=f"{metros_troncal_07:.1f} m")
-    c2.metric(label="Fibra Óptica Sensitiva (Nivel 5)", value=f"{metros_sensitiva_07:.1f} m")
-
     st.subheader("📋 Historial de Cambios")
     if not df_ev.empty: st.dataframe(df_ev, use_container_width=True)
     else: st.caption("No hay registros guardados para la CV007.")
