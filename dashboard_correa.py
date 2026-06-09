@@ -150,11 +150,12 @@ with tabs[0]:
                     xd, xh = trans_x_05(d_num), trans_x_05(h_num)
                     dist = (abs(d_num - h_num) + 1) * (1.5 if niv == 0 else (14 if niv == 5 else 1.5))
                     
+                    # Modo optimizado: Solo líneas y puntos para evitar solapamientos visuales
                     fig.add_trace(go.Scatter(
-                        x=[xd, xh], y=[niv, niv], mode="lines+markers+text", 
+                        x=[xd, xh], y=[niv, niv], mode="lines+markers", 
                         line=dict(color=DICC_NIVELES[niv]["color"], width=5), marker=dict(size=8), 
-                        text=[f"Est. {d_num}", f"Est. {h_num}"], textposition="top center",
-                        hovertext=f"Op: {fila['operador']}<br>Tramo: {dist:.1f} m", hoverinfo="text", showlegend=False
+                        hovertext=f"<b>{DICC_NIVELES[niv]['nombre']}</b><br>📍 Tramo: Est. {d_num} ➔ Est. {h_num}<br>📏 Distancia: {dist:.1f} m<br>👷 Op: {fila['operador']}<br>📝 Nota: {fila['nota']}", 
+                        hoverinfo="text", showlegend=False
                     ))
                 except: pass
 
@@ -167,7 +168,8 @@ with tabs[0]:
                 tickfont=dict(size=12)
             ), 
             yaxis=dict(range=[-1.5, 6.0], dtick=1, tickvals=list(DICC_NIVELES.keys()), ticktext=[n["nombre"] for n in DICC_NIVELES.values()]), 
-            margin=dict(l=50, r=50, t=30, b=100), height=550
+            margin=dict(l=50, r=50, t=30, b=100), height=550,
+            hovermode="closest"
         )
         st.plotly_chart(fig, use_container_width=True, key="gr_05")
 
@@ -206,7 +208,7 @@ with tabs[0]:
 
 
 # ==========================================
-# PESTAÑA CORREA CV006
+# PESTAÑA CORREA CV006 (EJES Y SOLAPAMIENTOS REPARADOS)
 # ==========================================
 with tabs[1]:
     correa_id = "CV006"
@@ -255,23 +257,25 @@ with tabs[1]:
                     dist = (abs(n_d - n_h) + 1) * (1.5 if niv == 0 else (14 if niv == 5 else 1.5))
                     
                     fig.add_trace(go.Scatter(
-                        x=[xd, xh], y=[niv, niv], mode="lines+markers+text", 
+                        x=[xd, xh], y=[niv, niv], mode="lines+markers", 
                         line=dict(color=DICC_NIVELES[niv]["color"], width=5), marker=dict(size=8), 
-                        text=[f"{fila['estacion_desde']}", f"{fila['estacion_hasta']}"], textposition="top center",
-                        hovertext=f"Op: {fila['operador']}<br>Tramo: {dist:.1f} m", hoverinfo="text", showlegend=False
+                        hovertext=f"<b>{DICC_NIVELES[niv]['nombre']}</b><br>📍 Tramo: {fila['estacion_desde']} ➔ {fila['estacion_hasta']}<br>📏 Distancia: {dist:.1f} m<br>👷 Op: {fila['operador']}<br>📝 Nota: {fila['nota']}", 
+                        hoverinfo="text", showlegend=False
                     ))
                 except: pass
 
+        # Distribución perfecta de etiquetas en el eje X para evitar empalmes en CV006
         fig.update_layout(
             xaxis=dict(
-                tickvals=[trans_x_06("3B Carga"), trans_x_06("1"), trans_x_06("1845"), trans_x_06("1846"), trans_x_06("3526")], 
-                ticktext=["3B Carga (TP1)", "Est. 1", "Centro (1845)", "Centro (1846)", "TP2 (3526)"], 
+                tickvals=[trans_x_06("3B Carga"), trans_x_06("1845"), trans_x_06("1846"), trans_x_06("3526")], 
+                ticktext=["3B Carga (TP1)", "Centro (1845)", "Centro (1846)", "TP2 (3526)"], 
                 gridcolor="rgba(0,0,0,0.1)",
                 tickangle=-45,
                 tickfont=dict(size=12)
             ), 
             yaxis=dict(range=[-1.5, 6.0], dtick=1, tickvals=list(DICC_NIVELES.keys()), ticktext=[n["nombre"] for n in DICC_NIVELES.values()]), 
-            margin=dict(l=50, r=50, t=30, b=100), height=550
+            margin=dict(l=50, r=50, t=30, b=100), height=550,
+            hovermode="closest"
         )
         st.plotly_chart(fig, use_container_width=True, key="gr_06")
 
@@ -361,10 +365,10 @@ with tabs[2]:
                     dist = (abs(xd - xh) + 1) * (1.5 if niv == 0 else (17 if niv == 5 else 1.5))
                     
                     fig.add_trace(go.Scatter(
-                        x=[xd, xh], y=[niv, niv], mode="lines+markers+text", 
+                        x=[xd, xh], y=[niv, niv], mode="lines+markers", 
                         line=dict(color=DICC_NIVELES[niv]["color"], width=5), marker=dict(size=8), 
-                        text=[f"Est. {xd}", f"Est. {xh}"], textposition="top center",
-                        hovertext=f"Op: {fila['operador']}<br>Tramo: {dist:.1f} m", hoverinfo="text", showlegend=False
+                        hovertext=f"<b>{DICC_NIVELES[niv]['nombre']}</b><br>📍 Tramo: Est. {xd} ➔ Est. {xh}<br>📏 Distancia: {dist:.1f} m<br>👷 Op: {fila['operador']}<br>📝 Nota: {fila['nota']}", 
+                        hoverinfo="text", showlegend=False
                     ))
                 except: pass
 
@@ -378,7 +382,8 @@ with tabs[2]:
                 tickfont=dict(size=12)
             ), 
             yaxis=dict(range=[-1.5, 6.0], dtick=1, tickvals=list(DICC_NIVELES.keys()), ticktext=[n["nombre"] for n in DICC_NIVELES.values()]), 
-            margin=dict(l=50, r=50, t=30, b=100), height=550
+            margin=dict(l=50, r=50, t=30, b=100), height=550,
+            hovermode="closest"
         )
         st.plotly_chart(fig, use_container_width=True, key="gr_07")
 
