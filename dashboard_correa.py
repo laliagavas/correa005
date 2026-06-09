@@ -20,8 +20,9 @@ try:
 except Exception:
     st.error("Error de conexión con la base de datos Supabase.")
 
-# Mapeo especial para las estaciones con letras de la CV006
-MAPEO_LETRAS_CV006 = {"3B Carga": -3, "2B Carga": -2, "1B Carga": -1}
+# Mapeo bidireccional definitivo para la base de datos de tipo Integer
+MAPEO_LETRAS_A_NUM = {"3B Carga": -3, "2B Carga": -2, "1B Carga": -1}
+MAPEO_NUM_A_LETRAS = {-3: "3B Carga", -2: "2B Carga", -1: "1B Carga"}
 
 DICC_NIVELES = {
     0: {"nombre": "Nivel 0: Fibra Óptica Troncal", "color": "red"},
@@ -36,22 +37,30 @@ DICC_NIVELES = {
 def leer_datos(correa_id):
     try:
         response = supabase.table("eventos_correa").select("*").eq("correa_id", correa_id).execute()
-        return pd.DataFrame(response.data)
+        df = pd.DataFrame(response.data)
+        if not df.empty and correa_id == "CV006":
+            df["estacion_desde"] = df["estacion_desde"].apply(lambda x: MAPEO_NUM_A_LETRAS.get(int(x), str(x)))
+            df["estacion_hasta"] = df["estacion_hasta"].apply(lambda x: MAPEO_NUM_A_LETRAS.get(int(x), str(x)))
+        return df
     except Exception:
         return pd.DataFrame()
 
 def guardar_registro(operador, desde, hasta, nivel, nota, correa_id):
-    # Eliminación segura para evitar duplicados en niveles globales (0 y 5)
+    # SOLUCIÓN CRÍTICA: Convertir strings a enteros AL PURO PRINCIPIO
+    val_desde = MAPEO_LETRAS_A_NUM.get(desde, desde)
+    val_hasta = MAPEO_LETRAS_A_NUM.get(hasta, hasta)
+    
+    # Cualquier operación posterior con Supabase ya va con números puros
     if nivel in [0, 5]:
         try:
             supabase.table("eventos_correa").delete().eq("correa_id", correa_id).eq("nivel", nivel).execute()
         except Exception:
             pass
-    
+            
     nuevo = {
         "operador": operador, 
-        "estacion_desde": str(desde), 
-        "estacion_hasta": str(hasta),
+        "estacion_desde": int(val_desde), 
+        "estacion_hasta": int(val_hasta), 
         "nivel": int(nivel), 
         "nota": nota, 
         "correa_id": correa_id
@@ -64,8 +73,8 @@ def guardar_registro(operador, desde, hasta, nivel, nota, correa_id):
         return False
 
 def convertir_a_numero_puro(est_str):
-    if est_str in MAPEO_LETRAS_CV006:
-        return MAPEO_LETRAS_CV006[est_str]
+    if est_str in MAPEO_LETRAS_A_NUM:
+        return MAPEO_LETRAS_A_NUM[est_str]
     try:
         return int(est_str)
     except:
@@ -176,7 +185,7 @@ with tabs[0]:
 
 
 # ==========================================
-# PESTAÑA CORREA CV006 (Totalmente Corregida)
+# PESTAÑA CORREA CV006
 # ==========================================
 with tabs[1]:
     correa_id = "CV006"
@@ -184,12 +193,11 @@ with tabs[1]:
     st.subheader(f"Estado Actual - {correa_id}")
     st.caption("Frente Físico: TP1 (3B Carga ➡️ 1845) 🤝 (1846 ⬅️ 3526) TP2")
 
-    # Mapeo espacial para posicionar frentes concurrentes cara a cara en el gráfico
     def trans_x_06(est_str):
         n = convertir_a_numero_puro(est_str)
-        if n <= 1845:  # Rama Norte: Se extiende a la izquierda del cero
+        if n <= 1845:
             return n - 1845
-        else:          # Rama Sur: Se extiende a la derecha del cero
+        else:
             return 3526 - n + 1
 
     total_estaciones_06 = 3526 + 3
@@ -198,8 +206,8 @@ with tabs[1]:
 
     if not df_ev.empty:
         for _, f in df_ev.iterrows():
-            n_d = convertir_a_numero_puro(f["estacion_desde"])
-            n_h = convertir_a_numero_puro(f["estacion_hasta"])
+            n_d = convertir_a_numero_puro(str(f["estacion_desde"]))
+            n_h = convertir_a_numero_puro(str(f["estacion_hasta"]))
             cant_est = abs(n_d - n_h) + 1
             if int(f["nivel"]) == 0:
                 metros_troncal_06 += cant_est * 1.5
@@ -211,7 +219,6 @@ with tabs[1]:
 
     fig = go.Figure()
     if img_base64:
-        # Se define la extensión total del fondo para cubrir ambos frentes concurrentes
         fig.add_layout_image(dict(source=f"data:image/png;base64,{img_base64}", xref="x", yref="y", x=-1848, y=-0.7, sizex=1848 + 1681, sizey=1.0, sizing="stretch", opacity=0.9, layer="below"))
 
     if not df_ev.empty:
@@ -233,7 +240,6 @@ with tabs[1]:
 
     texto_avance_06 = f"<span style='font-size:14px;'><b>📊 AVANCE GENERAL CV006</b><br><br>🔴 Troncal: <b>{porc_troncal_06:.1f}%</b><br>🟣 Sensitiva: <b>{porc_sensitiva_06:.1f}%</b></span>"
 
-    # Corregido: Se mapean todos los puntos clave en el eje X para asegurar escala visual completa
     fig.update_layout(
         xaxis=dict(
             tickvals=[trans_x_06("3B Carga"), trans_x_06("1"), trans_x_06("1845"), trans_x_06("1846"), trans_x_06("3526")], 
@@ -246,24 +252,22 @@ with tabs[1]:
     )
     st.plotly_chart(fig, use_container_width=True, key="gr_06")
 
-    # REGISTRO DE DATOS CON UN FORMULARIO DESACOPLADO (Solución al congelamiento de campos)
     with st.sidebar.expander(f"📥 Registrar Datos CV006"):
-        with st.form(key="f_06_nuevo"):
-            op = st.text_input("Operador:", key="op06_v2")
-            niv = st.selectbox("Nivel / Condición:", list(DICC_NIVELES.keys()), format_func=lambda x: DICC_NIVELES[x]["nombre"], key="niv06_v2")
-            frente = st.radio("Seleccionar Tramo / Frente:", ["TP1 hacia Centro (Norte: 3B a 1845)", "TP2 hacia Centro (Sur: 3526 a 1846)"], key="frente06_v2")
+        with st.form(key="f_06_final"):
+            op = st.text_input("Operador:", key="op06_final")
+            niv = st.selectbox("Nivel / Condición:", list(DICC_NIVELES.keys()), format_func=lambda x: DICC_NIVELES[x]["nombre"], key="niv06_final")
+            frente = st.radio("Seleccionar Tramo / Frente:", ["TP1 hacia Centro (Norte: 3B a 1845)", "TP2 hacia Centro (Sur: 3526 a 1846)"], key="frente06_final")
             
-            # Se generan de manera dinámica las listas independientes según el frente seleccionado
             if frente == "TP1 hacia Centro (Norte: 3B a 1845)":
                 opciones_norte = ["3B Carga", "2B Carga", "1B Carga"] + [str(n) for n in range(1, 1846)]
-                d = st.selectbox("Desde Estación (Punto Lejano TP1):", opciones_norte, index=0, key="d06_n_v2")
-                h = st.selectbox("Hasta Estación (Hacia Centro 1845):", opciones_norte, index=len(opciones_norte)-1, key="h06_n_v2")
+                d = st.selectbox("Desde Estación (Punto Lejano TP1):", opciones_norte, index=0, key="d06_n_final")
+                h = st.selectbox("Hasta Estación (Hacia Centro 1845):", opciones_norte, index=len(opciones_norte)-1, key="h06_n_final")
             else:
                 opciones_sur = [str(n) for n in range(1846, 3527)]
-                d = st.selectbox("Desde Estación (Punto Lejano TP2):", opciones_sur, index=len(opciones_sur)-1, key="d06_s_v2")
-                h = st.selectbox("Hasta Estación (Hacia Centro 1846):", opciones_sur, index=0, key="h06_s_v2")
+                d = st.selectbox("Desde Estación (Punto Lejano TP2):", opciones_sur, index=len(opciones_sur)-1, key="d06_s_final")
+                h = st.selectbox("Hasta Estación (Hacia Centro 1846):", opciones_sur, index=0, key="h06_s_final")
                 
-            nota = st.text_input("Nota:", key="nota06_v2")
+            nota = st.text_input("Nota:", key="nota06_final")
             
             if st.form_submit_button("Guardar Registro CV006"):
                 if op:
@@ -341,7 +345,7 @@ with tabs[2]:
     with st.sidebar.expander(f"📥 Registrar Datos CV007"):
         with st.form(key="f_07"):
             op = st.text_input("Operador:", key="op07")
-            niv = st.selectbox("Nivel / Condición:", list(DICC_NIVELES.keys()), format_func=lambda x: DICC_NIVELES[x]["nombre"], key="niv07")
+            niv = st.selectbox("Nivel / Condition:", list(DICC_NIVELES.keys()), format_func=lambda x: DICC_NIVELES[x]["nombre"], key="niv07")
             
             d = st.number_input("Desde Estación (Inicio):", 3, 842, 3, key="d07_lineal")
             h = st.number_input("Hasta Estación (Fin):", 3, 842, 842, key="h07_lineal")
