@@ -359,23 +359,26 @@ if lista_dfs:
     df_total = pd.concat(lista_dfs, ignore_index=True)
     df_total["nivel"] = df_total["nivel"].apply(lambda x: DICC_NIVELES.get(int(x), {"nombre": str(x)})["nombre"])
     
-    # 🇨🇱 CORRECCIÓN DE HORA: Aseguramos UTC y convertimos al huso horario de Chile
-    df_total["created_at"] = (
-        pd.to_datetime(df_total["created_at"], utc=True)
-        .dt.tz_convert("America/Santiago")
-        .dt.strftime('%d-%m-%Y %H:%M')
-    )
+    # 1. Convertimos a datetime real y ajustamos al huso horario de Chile
+    df_total["created_at_dt"] = pd.to_datetime(df_total["created_at"], utc=True).dt.tz_convert("America/Santiago")
     
-    st.dataframe(
-        df_total[["correa_id", "operador", "estacion_desde", "estacion_hasta", "nivel", "nota", "created_at"]]
-        .rename(columns={
-            "correa_id": "Correa", "operador": "Operador", 
-            "estacion_desde": "Desde Est.", "estacion_hasta": "Hasta Est.", 
-            "nivel": "Tipo de Fibra", "nota": "Observación", "created_at": "Fecha Registro"
-        })
-        .sort_values(by="Fecha Registro", ascending=False), 
-        use_container_width=True
-    )
+    # 2. Creamos la columna visual ya formateada como texto para mostrar en la tabla
+    df_total["Fecha Registro"] = df_total["created_at_dt"].dt.strftime('%d-%m-%Y %H:%M')
+    
+    # Renombramos las demás columnas antes del despliegue
+    df_mostrar = df_total[["correa_id", "operador", "estacion_desde", "estacion_hasta", "nivel", "nota", "Fecha Registro", "created_at_dt"]].rename(columns={
+        "correa_id": "Correa", 
+        "operador": "Operador", 
+        "estacion_desde": "Desde Est.", 
+        "estacion_hasta": "Hasta Est.", 
+        "nivel": "Tipo de Fibra", 
+        "nota": "Observación"
+    })
+    
+    # 3. 🔥 EL TRUCO: Ordenamos usando la columna datetime real (invisible en el DF final) para que sea cronológico
+    df_mostrar = df_mostrar.sort_values(by="created_at_dt", ascending=False).drop(columns=["created_at_dt"])
+    
+    st.dataframe(df_mostrar, use_container_width=True)
 else:
     st.info("No se registran datos ni transmisiones activas en la base de datos central.")
 
