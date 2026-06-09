@@ -23,19 +23,16 @@ except Exception:
 MAPEO_LETRAS_A_NUM = {"3B Carga": -3, "2B Carga": -2, "1B Carga": -1}
 MAPEO_NUM_A_LETRAS = {-3: "3B Carga", -2: "2B Carga", -1: "1B Carga"}
 
+# DICCIONARIO EXCLUSIVO: Solo los dos niveles validados
 DICC_NIVELES = {
     0: {"nombre": "Nivel 0: Fibra Óptica Troncal", "color": "red"},
-    1: {"nombre": "Nivel 1: Fibra Óptica posicionada", "color": "blue"},
-    2: {"nombre": "Nivel 2: Fibra Óptica dañada", "color": "orange"},
-    3: {"nombre": "Nivel 3: Clip Nuevos", "color": "yellow"},
-    4: {"nombre": "Nivel 4: Fibra Óptica tejida", "color": "green"},
     5: {"nombre": "Nivel 5: Fibra Óptica Sensitiva monitoreada", "color": "purple"}
 }
 
 # 3. FUNCIONES DE BASE DE DATOS Y CONVERSIÓN
 def leer_datos(correa_id):
     try:
-        response = supabase.table("eventos_correa").select("*").eq("correa_id", correa_id).execute()
+        response = supabase.table("eventos_correa").select("*").eq("correa_id", correa_id).in_("nivel", [0, 5]).execute()
         df = pd.DataFrame(response.data)
         if not df.empty and correa_id == "CV006":
             df["estacion_desde"] = df["estacion_desde"].apply(lambda x: MAPEO_NUM_A_LETRAS.get(int(x), str(x)))
@@ -48,16 +45,15 @@ def guardar_registro(operador, desde, hasta, nivel, nota, correa_id):
     val_desde = MAPEO_LETRAS_A_NUM.get(desde, desde)
     val_hasta = MAPEO_LETRAS_A_NUM.get(hasta, hasta)
     
-    if nivel in [0, 5]:
-        try:
-            if correa_id == "CV006":
-                if int(val_desde) <= 1845:
-                    supabase.table("eventos_correa").delete().eq("correa_id", correa_id).eq("nivel", nivel).lte("estacion_desde", 1845).execute()
-                else:
-                    supabase.table("eventos_correa").delete().eq("correa_id", correa_id).eq("nivel", nivel).gt("estacion_desde", 1845).execute()
+    try:
+        if correa_id == "CV006":
+            if int(val_desde) <= 1845:
+                supabase.table("eventos_correa").delete().eq("correa_id", correa_id).eq("nivel", nivel).lte("estacion_desde", 1845).execute()
             else:
-                supabase.table("eventos_correa").delete().eq("correa_id", correa_id).eq("nivel", nivel).execute()
-        except: pass
+                supabase.table("eventos_correa").delete().eq("correa_id", correa_id).eq("nivel", nivel).gt("estacion_desde", 1845).execute()
+        else:
+            supabase.table("eventos_correa").delete().eq("correa_id", correa_id).eq("nivel", nivel).execute()
+    except: pass
             
     nuevo = {"operador": operador, "estacion_desde": int(val_desde), "estacion_hasta": int(val_hasta), "nivel": int(nivel), "nota": nota, "correa_id": correa_id}
     try:
@@ -74,7 +70,7 @@ def convertir_a_numero_puro(est_str):
     except: return 0
 
 def obtener_metros_reales(num_estacion, correa_id, nivel):
-    """Calcula metros acumulados absolutos desde el cero izquierdo respetando las constantes físicas por nivel"""
+    """Calcula metros acumulados absolutos desde el cero izquierdo respetando las constantes físicas precisas"""
     factor = 1.5 if int(nivel) == 0 else (17.0 if correa_id == "CV007" else 14.0)
     
     if correa_id == "CV005":
@@ -85,7 +81,7 @@ def obtener_metros_reales(num_estacion, correa_id, nivel):
         return (num_estacion - 3) * factor
     return 0.0
 
-# 4. CARGA DE IMAGEN ÚNICA
+# 4. CARGA DE IMAGEN DE FONDO
 def get_base64_img(file):
     try:
         with open(file, 'rb') as f: return base64.b64encode(f.read()).decode()
@@ -160,8 +156,8 @@ with tabs[0]:
                 ticktext=["TP1 (3823) [0.0 m]", "3000", "Centro (2000)", "1000", "EM (1)"], 
                 gridcolor="rgba(0,0,0,0.1)", tickangle=-45, tickfont=dict(size=12)
             ), 
-            yaxis=dict(range=[-1.5, 6.0], dtick=1, tickvals=list(DICC_NIVELES.keys()), ticktext=[n["nombre"] for n in DICC_NIVELES.values()]), 
-            margin=dict(l=50, r=50, t=30, b=100), height=550, hovermode="closest"
+            yaxis=dict(range=[-1.0, 6.0], dtick=5, tickvals=list(DICC_NIVELES.keys()), ticktext=[n["nombre"] for n in DICC_NIVELES.values()]), 
+            margin=dict(l=50, r=50, t=30, b=100), height=400, hovermode="closest"
         )
         st.plotly_chart(fig, use_container_width=True, key="gr_05")
 
@@ -173,6 +169,13 @@ with tabs[0]:
         st.markdown("### 📏 Metraje")
         st.metric(label="Troncal (Nivel 0)", value=f"{metros_troncal_05:.1f} m")
         st.metric(label="Sensitiva (Nivel 5)", value=f"{metros_sensitiva_05:.1f} m")
+
+    # TABLA DE REGISTROS CV005
+    st.markdown("### 📋 Historial de Registros en Base de Datos")
+    if not df_ev.empty:
+        st.dataframe(df_ev[["id", "operador", "estacion_desde", "estacion_hasta", "nivel", "nota", "created_at"]].sort_values(by="created_at", ascending=False), use_container_width=True)
+    else:
+        st.info("No hay registros almacenados para la correa CV005.")
 
     with st.sidebar.expander(f"📥 Registrar Datos CV005"):
         with st.form(key="f_05"):
@@ -191,7 +194,7 @@ with tabs[0]:
 
 
 # ==========================================
-# PESTAÑA CORREA CV006 (DIRECCIÓN CORREGIDA)
+# PESTAÑA CORREA CV006 (ORIENTACIÓN TOTALMENTE REPARADA)
 # ==========================================
 with tabs[1]:
     correa_id = "CV006"
@@ -201,10 +204,8 @@ with tabs[1]:
 
     col_grafico_06, col_metricas_06 = st.columns([4, 1])
 
-    # CORRECCIÓN DE ORIENTACIÓN VISUAL: De izquierda a derecha continuo (-3 -> 1845 -> 1846 -> 3526)
     def trans_x_06(est_str):
-        n = convertir_a_numero_puro(est_str)
-        return n  # Retornamos el valor directo lineal para evitar inversiones falsas
+        return convertir_a_numero_puro(est_str)
 
     total_estaciones_06 = 3526 + 3
     metros_troncal_06, metros_sensitiva_06 = 0, 0
@@ -255,8 +256,8 @@ with tabs[1]:
                 ticktext=["3B Carga (TP1) [0.0 m]", "Centro (1845)", "Centro (1846)", "TP2 (3526)"], 
                 gridcolor="rgba(0,0,0,0.1)", tickangle=-45, tickfont=dict(size=12)
             ), 
-            yaxis=dict(range=[-1.5, 6.0], dtick=1, tickvals=list(DICC_NIVELES.keys()), ticktext=[n["nombre"] for n in DICC_NIVELES.values()]), 
-            margin=dict(l=50, r=50, t=30, b=100), height=550, hovermode="closest"
+            yaxis=dict(range=[-1.0, 6.0], dtick=5, tickvals=list(DICC_NIVELES.keys()), ticktext=[n["nombre"] for n in DICC_NIVELES.values()]), 
+            margin=dict(l=50, r=50, t=30, b=100), height=400, hovermode="closest"
         )
         st.plotly_chart(fig, use_container_width=True, key="gr_06")
 
@@ -268,6 +269,13 @@ with tabs[1]:
         st.markdown("### 📏 Metraje")
         st.metric(label="Troncal (Nivel 0)", value=f"{metros_troncal_06:.1f} m")
         st.metric(label="Sensitiva (Nivel 5)", value=f"{metros_sensitiva_06:.1f} m")
+
+    # TABLA DE REGISTROS CV006
+    st.markdown("### 📋 Historial de Registros en Base de Datos")
+    if not df_ev.empty:
+        st.dataframe(df_ev[["id", "operador", "estacion_desde", "estacion_hasta", "nivel", "nota", "created_at"]].sort_values(by="created_at", ascending=False), use_container_width=True)
+    else:
+        st.info("No hay registros almacenados para la correa CV006.")
 
     with st.sidebar.expander(f"📥 Registrar Datos CV006"):
         frente_06 = st.radio("Seleccionar Tramo / Frente:", ["TP1 hacia Centro (Norte: 3B a 1845)", "TP2 hacia Centro (Sur: 1846 a 3526)"], key="frente_fuera_06")
@@ -289,7 +297,7 @@ with tabs[1]:
 
 
 # ==========================================
-# PESTAÑA CORREA CV007 (FACTOR 17 METROS APLICADO)
+# PESTAÑA CORREA CV007 (FACTOR 17 METROS)
 # ==========================================
 with tabs[2]:
     correa_id = "CV007"
@@ -306,7 +314,7 @@ with tabs[2]:
         for _, f in df_ev.iterrows():
             cant_est = abs(int(f["estacion_desde"]) - int(f["estacion_hasta"])) + 1
             if int(f["nivel"]) == 0: metros_troncal_07 += cant_est * 1.5
-            elif int(f["nivel"]) == 5: metros_sensitiva_07 += cant_est * 17.0  # CORRECCIÓN: 17 metros promedio
+            elif int(f["nivel"]) == 5: metros_sensitiva_07 += cant_est * 17.0
 
     porc_troncal_07 = min(((metros_troncal_07 / 1.5) / total_estaciones_07) * 100, 100.0) if total_estaciones_07 > 0 else 0
     porc_sensitiva_07 = min(((metros_sensitiva_07 / 17.0) / total_estaciones_07) * 100, 100.0) if total_estaciones_07 > 0 else 0
@@ -347,8 +355,8 @@ with tabs[2]:
                 ticktext=["TP2 (Est. 3) [0.0 m]", "200", "400", "600", "Shuttler (Est. 842)"], 
                 gridcolor="rgba(0,0,0,0.1)", tickangle=-45, tickfont=dict(size=12)
             ), 
-            yaxis=dict(range=[-1.5, 6.0], dtick=1, tickvals=list(DICC_NIVELES.keys()), ticktext=[n["nombre"] for n in DICC_NIVELES.values()]), 
-            margin=dict(l=50, r=50, t=30, b=100), height=550, hovermode="closest"
+            yaxis=dict(range=[-1.0, 6.0], dtick=5, tickvals=list(DICC_NIVELES.keys()), ticktext=[n["nombre"] for n in DICC_NIVELES.values()]), 
+            margin=dict(l=50, r=50, t=30, b=100), height=400, hovermode="closest"
         )
         st.plotly_chart(fig, use_container_width=True, key="gr_07")
 
@@ -360,6 +368,13 @@ with tabs[2]:
         st.markdown("### 📏 Metraje")
         st.metric(label="Troncal (Nivel 0)", value=f"{metros_troncal_07:.1f} m")
         st.metric(label="Sensitiva (Nivel 5)", value=f"{metros_sensitiva_07:.1f} m")
+
+    # TABLA DE REGISTROS CV007
+    st.markdown("### 📋 Historial de Registros en Base de Datos")
+    if not df_ev.empty:
+        st.dataframe(df_ev[["id", "operador", "estacion_desde", "estacion_hasta", "nivel", "nota", "created_at"]].sort_values(by="created_at", ascending=False), use_container_width=True)
+    else:
+        st.info("No hay registros almacenados para la correa CV007.")
 
     with st.sidebar.expander(f"📥 Registrar Datos CV007"):
         with st.form(key="f_07"):
