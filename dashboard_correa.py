@@ -4,7 +4,7 @@ import plotly.graph_objects as go
 from supabase import create_client, Client
 import base64
 
-# 1. CONFIGURACIÓN DE PÁGINA
+# 1. CONFIGURACIÓN DE PÁGINA (TEMA OSCURO OBLIGATORIO PARA EFECTO NEÓN)
 st.set_page_config(layout="wide", page_title="Sistema Monitoreo Global - CV")
 
 # 2. CONEXIÓN A SUPABASE
@@ -23,10 +23,10 @@ except Exception:
 MAPEO_LETRAS_A_NUM = {"3B Carga": -3, "2B Carga": -2, "1B Carga": -1}
 MAPEO_NUM_A_LETRAS = {-3: "3B Carga", -2: "2B Carga", -1: "1B Carga"}
 
-# DICCIONARIO EXCLUSIVO: Solo los dos niveles validados
+# DICCIONARIO EXCLUSIVO: Solo los dos niveles validados con colores de neón intensos
 DICC_NIVELES = {
-    0: {"nombre": "Fibra Óptica Troncal", "color": "red"},
-    5: {"nombre": "Fibra Óptica Sensitiva monitoreada", "color": "purple"}
+    0: {"nombre": "Fibra Óptica Troncal", "color": "#FF0000", "glow": "rgba(255, 0, 0, 0.3)"},
+    5: {"nombre": "Fibra Óptica Sensitiva monitored", "color": "#E066FF", "glow": "rgba(224, 102, 255, 0.3)"}
 }
 
 # 3. FUNCIONES DE BASE DE DATOS Y CONVERSIÓN
@@ -79,16 +79,19 @@ def obtener_metros_reales(num_estacion, correa_id, nivel):
         return (num_estacion - 3) * factor
     return 0.0
 
-# 4. CARGA DE IMAGEN DE FONDO
+# 4. CARGA DE IMAGEN DE FONDO TÉCNICA (SOLUCIONA EFECTO LEGO)
 def get_base64_img(file):
     try:
         with open(file, 'rb') as f: return base64.b64encode(f.read()).decode()
     except: return None
 
-img_base64 = get_base64_img('correa.png')
+# Asegúrate de tener esta nueva imagen técnica 'correa_tecnica.png' en tu carpeta
+img_tecnica_base64 = get_base64_img('correa_tecnica.png') 
 
 # 5. INTERFAZ PRINCIPAL MULTI-PESTAÑA
-st.title("📊 Sistema de Monitoreo de Polines Mediante Fibra Óptica")
+st.markdown("<h1 style='text-align: center; color: #E066FF;'>📊 SISTEMA DE MONITOREO DE POLINES MEDIANTE FIBRA ÓPTICA</h1>", unsafe_allow_with_html=True)
+st.markdown("<p style='text-align: center; color: gray; font-size: 0.8rem;'>High-Tech Fiber Monitoring Command Center</p>", unsafe_allow_with_html=True)
+
 tabs = st.tabs(["CV005", "CV006", "CV007"])
 
 # ==========================================
@@ -120,14 +123,13 @@ with tabs[0]:
 
     with col_grafico:
         fig = go.Figure()
-        # IMAGEN CORREGIDA: Se posiciona en la zona inferior (-2.5) con una altura proporcionada (sizey=2.0)
-        if img_base64:
+        
+        # IMAGEN TÉCNICA DE FONDO (Mejora LEGO): Corte transversal técnico transparente
+        if img_tecnica_base64:
             fig.add_layout_image(dict(
-                source=f"data:image/png;base64,{img_base64}", 
-                xref="x", yref="y", 
-                x=-1823, y=-0.5, 
-                sizex=3823, sizey=2.0, 
-                sizing="stretch", opacity=0.85, layer="below"
+                source=f"data:image/png;base64,{img_tecnica_base64}", xref="x", yref="y", 
+                x=-1823, y=-0.5, sizex=3823, sizey=2.5, 
+                sizing="stretch", opacity=0.9, layer="below"
             ))
 
         if not df_ev.empty:
@@ -140,9 +142,17 @@ with tabs[0]:
                     m_desde = obtener_metros_reales(d_num, correa_id, niv)
                     m_hasta = obtener_metros_reales(h_num, correa_id, niv)
                     
+                    # EFECTO NEÓN (Superponer 2 líneas)
+                    # 1. Línea Base (Glow): Gruesa, con baja opacidad
+                    fig.add_trace(go.Scatter(
+                        x=[xd, xh], y=[niv, niv], mode="lines", 
+                        line=dict(color=DICC_NIVELES[niv]["glow"], width=15),
+                        hoverinfo="skip", showlegend=False
+                    ))
+                    # 2. Línea Central (Brillante): Fina
                     fig.add_trace(go.Scatter(
                         x=[xd, xh], y=[niv, niv], mode="lines+markers", 
-                        line=dict(color=DICC_NIVELES[niv]["color"], width=5), marker=dict(size=8), 
+                        line=dict(color=DICC_NIVELES[niv]["color"], width=3), marker=dict(size=8), 
                         customdata=[[d_num, m_desde], [h_num, m_hasta]],
                         hovertemplate=(
                             f"<b>{DICC_NIVELES[niv]['nombre']}</b><br>"
@@ -158,33 +168,38 @@ with tabs[0]:
         fig.update_layout(
             xaxis=dict(
                 tickvals=[-1823, -1000, 0, 1000, 1999], 
-                ticktext=["TP1 (3823)", "3000", "Centro (2000)", "1000", "EM (1)"], 
-                gridcolor="rgba(0,0,0,0.05)", tickangle=0, tickfont=dict(size=11)
+                ticktext=["TP1 (3823) [0.0 m]", "3000", "Centro (2000)", "1000", "EM (1)"], 
+                gridcolor="rgba(0,0,0,0.02)", tickangle=0, tickfont=dict(size=11, color="gray")
             ), 
             yaxis=dict(
-                range=[-3.0, 6.5], 
-                dtick=5, 
+                range=[-3.0, 7.0], dtick=5, # Mayor rango inferior para que la correa tenga 'aire'
                 tickvals=list(DICC_NIVELES.keys()), 
-                ticktext=[n["nombre"] for n in DICC_NIVELES.values()]
+                ticktext=[n["nombre"] for n in DICC_NIVELES.values()],
+                tickfont=dict(color="gray")
             ), 
+            plot_bgcolor="rgba(0,0,0,0)", # Fondo oscuro transparente
             margin=dict(l=50, r=50, t=30, b=50), height=450, hovermode="closest"
         )
         st.plotly_chart(fig, use_container_width=True, key="gr_05")
 
     with col_metricas:
-        st.markdown("### 📊 Avance General")
-        st.metric(label="🔴 Avance Troncal", value=f"{porc_troncal_05:.1f}%")
-        st.metric(label="🟣 Avance Sensitiva", value=f"{porc_sensitiva_05:.1f}%")
+        # MÉTRICAS ESTILO GAUGE HOLOGRÁFICO
+        st.markdown("<p style='text-align: center; color: white;'>🔴 Avance Troncal</p>", unsafe_allow_with_html=True)
+        st.markdown(f"<h1 style='text-align: center; color: {DICC_NIVELES[0]['color']}; font-size: 2.5rem;'>{porc_troncal_05:.1f}%</h1>", unsafe_allow_with_html=True)
+        
+        st.markdown("<p style='text-align: center; color: white;'>🟣 Avance Sensitiva</p>", unsafe_allow_with_html=True)
+        st.markdown(f"<h1 style='text-align: center; color: {DICC_NIVELES[5]['color']}; font-size: 2.5rem;'>{porc_sensitiva_05:.1f}%</h1>", unsafe_allow_with_html=True)
+        
         st.markdown("---")
-        st.markdown("### 📏 Metraje")
+        st.markdown("### 📏 Metraje Consolidado")
         st.metric(label="Troncal (Nivel 0)", value=f"{metros_troncal_05:.1f} m")
         st.metric(label="Sensitiva (Nivel 5)", value=f"{metros_sensitiva_05:.1f} m")
 
-    st.markdown("### 📋 Historial de Registros en Base de Datos")
+    st.markdown("### 📋 Historial de Registros de Comando")
     if not df_ev.empty:
         st.dataframe(df_ev[["id", "operador", "estacion_desde", "estacion_hasta", "nivel", "nota", "created_at"]].sort_values(by="created_at", ascending=False), use_container_width=True)
     else:
-        st.info("No hay registros almacenados para la correa CV005.")
+        st.info("Esperando telemetría de la CV005...")
 
     with st.sidebar.expander(f"📥 Registrar Datos CV005"):
         with st.form(key="f_05"):
@@ -203,13 +218,13 @@ with tabs[0]:
 
 
 # ==========================================
-# PESTAÑA CORREA CV006
+# PESTAÑA CORREA CV006 (ORIENTACIÓN TÉCNICA REPARADA)
 # ==========================================
 with tabs[1]:
     correa_id = "CV006"
     df_ev = leer_datos(correa_id)
     st.subheader(f"Estado Actual - {correa_id}")
-    st.caption("TP1 (3B Carga ➡️ 1845) | (1846 ➡️ 3526) TP2")
+    st.caption("Frente Físico: TP1 (3B Carga ➡️ 1845) 🤝 (1846 ➡️ 3526) TP2")
 
     col_grafico_06, col_metricas_06 = st.columns([4, 1])
 
@@ -230,14 +245,10 @@ with tabs[1]:
 
     with col_grafico_06:
         fig = go.Figure()
-        # IMAGEN CORREGIDA: Se ajusta la escala del contenedor de la banda de hule
-        if img_base64:
+        if img_tecnica_base64:
             fig.add_layout_image(dict(
-                source=f"data:image/png;base64,{img_base64}", 
-                xref="x", yref="y", 
-                x=-3, y=-0.5, 
-                sizex=3530, sizey=2.0, 
-                sizing="stretch", opacity=0.85, layer="below"
+                source=f"data:image/png;base64,{img_tecnica_base64}", xref="x", yref="y", 
+                x=-3, y=-0.5, sizex=3530, sizey=2.5, sizing="stretch", opacity=0.9, layer="below"
             ))
 
         if not df_ev.empty:
@@ -251,9 +262,15 @@ with tabs[1]:
                     m_desde = obtener_metros_reales(n_d, correa_id, niv)
                     m_hasta = obtener_metros_reales(n_h, correa_id, niv)
                     
+                    # EFECTO NEÓN CV006
+                    fig.add_trace(go.Scatter(
+                        x=[xd, xh], y=[niv, niv], mode="lines", 
+                        line=dict(color=DICC_NIVELES[niv]["glow"], width=15),
+                        hoverinfo="skip", showlegend=False
+                    ))
                     fig.add_trace(go.Scatter(
                         x=[xd, xh], y=[niv, niv], mode="lines+markers", 
-                        line=dict(color=DICC_NIVELES[niv]["color"], width=5), marker=dict(size=8), 
+                        line=dict(color=DICC_NIVELES[niv]["color"], width=3), marker=dict(size=8), 
                         customdata=[[fila['estacion_desde'], m_desde], [fila['estacion_hasta'], m_hasta]],
                         hovertemplate=(
                             f"<b>{DICC_NIVELES[niv]['nombre']}</b><br>"
@@ -270,32 +287,34 @@ with tabs[1]:
             xaxis=dict(
                 tickvals=[-3, 1845, 1846, 3526], 
                 ticktext=["3B Carga (TP1) [0.0 m]", "Centro (1845)", "Centro (1846)", "TP2 (3526)"], 
-                gridcolor="rgba(0,0,0,0.05)", tickangle=0, tickfont=dict(size=11)
+                gridcolor="rgba(0,0,0,0.02)", tickangle=0, tickfont=dict(size=11, color="gray")
             ), 
             yaxis=dict(
-                range=[-3.0, 6.5], 
-                dtick=5, 
-                tickvals=list(DICC_NIVELES.keys()), 
-                ticktext=[n["nombre"] for n in DICC_NIVELES.values()]
+                range=[-3.0, 7.0], dtick=5, tickvals=list(DICC_NIVELES.keys()), 
+                ticktext=[n["nombre"] for n in DICC_NIVELES.values()],
+                tickfont=dict(color="gray")
             ), 
-            margin=dict(l=50, r=50, t=30, b=50), height=450, hovermode="closest"
+            plot_bgcolor="rgba(0,0,0,0)", margin=dict(l=50, r=50, t=30, b=50), height=450, hovermode="closest"
         )
         st.plotly_chart(fig, use_container_width=True, key="gr_06")
 
     with col_metricas_06:
-        st.markdown("### 📊 Avance General")
-        st.metric(label="🔴 Avance Troncal", value=f"{porc_troncal_06:.1f}%")
-        st.metric(label="🟣 Avance Sensitiva", value=f"{porc_sensitiva_06:.1f}%")
+        st.markdown("<p style='text-align: center; color: white;'>🔴 Avance Troncal</p>", unsafe_allow_with_html=True)
+        st.markdown(f"<h1 style='text-align: center; color: {DICC_NIVELES[0]['color']}; font-size: 2.5rem;'>{porc_troncal_06:.1f}%</h1>", unsafe_allow_with_html=True)
+        
+        st.markdown("<p style='text-align: center; color: white;'>🟣 Avance Sensitiva</p>", unsafe_allow_with_html=True)
+        st.markdown(f"<h1 style='text-align: center; color: {DICC_NIVELES[5]['color']}; font-size: 2.5rem;'>{porc_sensitiva_06:.1f}%</h1>", unsafe_allow_with_html=True)
+        
         st.markdown("---")
-        st.markdown("### 📏 Metraje")
+        st.markdown("### 📏 Metraje Consolidado")
         st.metric(label="Troncal (Nivel 0)", value=f"{metros_troncal_06:.1f} m")
         st.metric(label="Sensitiva (Nivel 5)", value=f"{metros_sensitiva_06:.1f} m")
 
-    st.markdown("### 📋 Historial de Registros en Base de Datos")
+    st.markdown("### 📋 Historial de Registros de Comando")
     if not df_ev.empty:
         st.dataframe(df_ev[["id", "operador", "estacion_desde", "estacion_hasta", "nivel", "nota", "created_at"]].sort_values(by="created_at", ascending=False), use_container_width=True)
     else:
-        st.info("No hay registros almacenados para la correa CV006.")
+        st.info("Esperando telemetría de la CV006...")
 
     with st.sidebar.expander(f"📥 Registrar Datos CV006"):
         frente_06 = st.radio("Seleccionar Tramo / Frente:", ["TP1 hacia Centro (Norte: 3B a 1845)", "TP2 hacia Centro (Sur: 1846 a 3526)"], key="frente_fuera_06")
@@ -308,7 +327,7 @@ with tabs[1]:
 
         with st.form(key="f_06_historial"):
             op = st.text_input("Operador:", key="op06_hist")
-            niv = st.selectbox("Nivel / Condition:", list(DICC_NIVELES.keys()), format_func=lambda x: DICC_NIVELES[x]["nombre"], key="niv06_hist")
+            niv = st.selectbox("Nivel / Condición:", list(DICC_NIVELES.keys()), format_func=lambda x: DICC_NIVELES[x]["nombre"], key="niv06_hist")
             d = st.selectbox("Desde Estación:", opciones_estaciones, index=idx_def_desde, key="d06_hist")
             h = st.selectbox("Hasta Estación:", opciones_estaciones, index=idx_def_hasta, key="h06_hist")
             nota = st.text_input("Nota:", key="nota06_hist")
@@ -323,7 +342,7 @@ with tabs[2]:
     correa_id = "CV007"
     df_ev = leer_datos(correa_id)
     st.subheader(f"Estado Actual - {correa_id}")
-    st.caption("TP2 (Estación 3) ➡️ Shuttler (Estación 842)")
+    st.caption("Línea Recta Continua: TP2 (Estación 3) ➡️ Shuttler (Estación 842)")
 
     col_grafico_07, col_metricas_07 = st.columns([4, 1])
 
@@ -341,14 +360,10 @@ with tabs[2]:
 
     with col_grafico_07:
         fig = go.Figure()
-        # IMAGEN CORREGIDA: Seteo simétrico y proporcional para evitar la compresión vertical
-        if img_base64:
+        if img_tecnica_base64:
             fig.add_layout_image(dict(
-                source=f"data:image/png;base64,{img_base64}", 
-                xref="x", yref="y", 
-                x=3, y=-0.5, 
-                sizex=839, sizey=2.0, 
-                sizing="stretch", opacity=0.85, layer="below"
+                source=f"data:image/png;base64,{img_tecnica_base64}", xref="x", yref="y", 
+                x=3, y=-0.5, sizex=839 * 2, sizey=2.5, sizing="stretch", opacity=0.9, layer="below"
             ))
 
         if not df_ev.empty:
@@ -360,9 +375,15 @@ with tabs[2]:
                     m_desde = obtener_metros_reales(xd, correa_id, niv)
                     m_hasta = obtener_metros_reales(xh, correa_id, niv)
                     
+                    # EFECTO NEÓN CV007
+                    fig.add_trace(go.Scatter(
+                        x=[xd, xh], y=[niv, niv], mode="lines", 
+                        line=dict(color=DICC_NIVELES[niv]["glow"], width=15),
+                        hoverinfo="skip", showlegend=False
+                    ))
                     fig.add_trace(go.Scatter(
                         x=[xd, xh], y=[niv, niv], mode="lines+markers", 
-                        line=dict(color=DICC_NIVELES[niv]["color"], width=5), marker=dict(size=8), 
+                        line=dict(color=DICC_NIVELES[niv]["color"], width=3), marker=dict(size=8), 
                         customdata=[[xd, m_desde], [xh, m_hasta]],
                         hovertemplate=(
                             f"<b>{DICC_NIVELES[niv]['nombre']}</b><br>"
@@ -380,32 +401,34 @@ with tabs[2]:
                 range=[0, 850], 
                 tickvals=[3, 200, 400, 600, 842], 
                 ticktext=["TP2 (Est. 3) [0.0 m]", "200", "400", "600", "Shuttler (Est. 842)"], 
-                gridcolor="rgba(0,0,0,0.05)", tickangle=0, tickfont=dict(size=11)
+                gridcolor="rgba(0,0,0,0.02)", tickangle=0, tickfont=dict(size=11, color="gray")
             ), 
             yaxis=dict(
-                range=[-3.0, 6.5], 
-                dtick=5, 
-                tickvals=list(DICC_NIVELES.keys()), 
-                ticktext=[n["nombre"] for n in DICC_NIVELES.values()]
+                range=[-3.0, 7.0], dtick=5, tickvals=list(DICC_NIVELES.keys()), 
+                ticktext=[n["nombre"] for n in DICC_NIVELES.values()],
+                tickfont=dict(color="gray")
             ), 
-            margin=dict(l=50, r=50, t=30, b=50), height=450, hovermode="closest"
+            plot_bgcolor="rgba(0,0,0,0)", margin=dict(l=50, r=50, t=30, b=50), height=450, hovermode="closest"
         )
         st.plotly_chart(fig, use_container_width=True, key="gr_07")
 
     with col_metricas_07:
-        st.markdown("### 📊 Avance General")
-        st.metric(label="🔴 Avance Troncal", value=f"{porc_troncal_07:.1f}%")
-        st.metric(label="🟣 Avance Sensitiva", value=f"{porc_sensitiva_07:.1f}%")
+        st.markdown("<p style='text-align: center; color: white;'>🔴 Avance Troncal</p>", unsafe_allow_with_html=True)
+        st.markdown(f"<h1 style='text-align: center; color: {DICC_NIVELES[0]['color']}; font-size: 2.5rem;'>{porc_troncal_07:.1f}%</h1>", unsafe_allow_with_html=True)
+        
+        st.markdown("<p style='text-align: center; color: white;'>🟣 Avance Sensitiva</p>", unsafe_allow_with_html=True)
+        st.markdown(f"<h1 style='text-align: center; color: {DICC_NIVELES[5]['color']}; font-size: 2.5rem;'>{porc_sensitiva_07:.1f}%</h1>", unsafe_allow_with_html=True)
+        
         st.markdown("---")
-        st.markdown("### 📏 Metraje")
+        st.markdown("### 📏 Metraje Consolidado")
         st.metric(label="Troncal (Nivel 0)", value=f"{metros_troncal_07:.1f} m")
         st.metric(label="Sensitiva (Nivel 5)", value=f"{metros_sensitiva_07:.1f} m")
 
-    st.markdown("### 📋 Historial de Registros en Base de Datos")
+    st.markdown("### 📋 Historial de Registros de Comando")
     if not df_ev.empty:
         st.dataframe(df_ev[["id", "operador", "estacion_desde", "estacion_hasta", "nivel", "nota", "created_at"]].sort_values(by="created_at", ascending=False), use_container_width=True)
     else:
-        st.info("No hay registros almacenados para la correa CV007.")
+        st.info("Esperando telemetría de la CV007...")
 
     with st.sidebar.expander(f"📥 Registrar Datos CV007"):
         with st.form(key="f_07"):
