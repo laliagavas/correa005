@@ -4,7 +4,7 @@ import plotly.graph_objects as go
 from supabase import create_client, Client
 import base64
 
-# 1. CONFIGURACIÓN DE PÁGINA (ESTABLECIDA ANTES DE CUALQUIER OTRA COSA)
+# 1. CONFIGURACIÓN DE PÁGINA (Debe ser la primera directiva de Streamlit)
 st.set_page_config(layout="wide", page_title="Sistema Monitoreo Global - CV")
 
 # 2. CONEXIÓN A SUPABASE
@@ -23,13 +23,13 @@ except Exception:
 MAPEO_LETRAS_A_NUM = {"3B Carga": -3, "2B Carga": -2, "1B Carga": -1}
 MAPEO_NUM_A_LETRAS = {-3: "3B Carga", -2: "2B Carga", -1: "1B Carga"}
 
-# DICCIONARIO EXCLUSIVO: Solo los dos niveles validados con colores de neón intensos
+# DICCIONARIO DE CONFIGURACIÓN: Colores de neón intensos para el efecto cibernético / futurista
 DICC_NIVELES = {
-    0: {"nombre": "Fibra Óptica Troncal", "color": "#FF0000", "glow": "rgba(255, 0, 0, 0.3)"},
-    5: {"nombre": "Fibra Óptica Sensitiva monitored", "color": "#E066FF", "glow": "rgba(224, 102, 255, 0.3)"}
+    0: {"nombre": "Fibra Óptica Troncal", "color": "#FF0000", "glow": "rgba(255, 0, 0, 0.25)"},
+    5: {"nombre": "Fibra Óptica Sensitiva Monitoreada", "color": "#E066FF", "glow": "rgba(224, 102, 255, 0.25)"}
 }
 
-# 3. FUNCIONES DE BASE DE DATOS Y CONVERSIÓN
+# 3. FUNCIONES DE BASE DE DATOS Y LOGÍSTICA
 def leer_datos(correa_id):
     try:
         response = supabase.table("eventos_correa").select("*").eq("correa_id", correa_id).in_("nivel", [0, 5]).execute()
@@ -79,27 +79,29 @@ def obtener_metros_reales(num_estacion, correa_id, nivel):
         return (num_estacion - 3) * factor
     return 0.0
 
-# 4. CARGA DE IMAGEN DE FONDO
+# 4. TRATAMIENTO DE IMAGEN DE FONDO
 def get_base64_img(file):
     try:
         with open(file, 'rb') as f: return base64.b64encode(f.read()).decode()
     except: return None
 
+# Se busca la imagen estilizada 'correa_tecnica.png' en la raíz del proyecto
 img_tecnica_base64 = get_base64_img('correa_tecnica.png') 
 
-# 5. TITULO PRINCIPAL DE LA APP (USANDO MÉTODO SEGURO)
+# 5. ENCABEZADO PRINCIPAL DE LA PLATAFORMA
 st.title("📊 SISTEMA DE MONITOREO DE POLINES MEDIANTE FIBRA ÓPTICA")
-st.text("High-Tech Fiber Monitoring Command Center")
+st.caption("Centro de Mando de Telemetría Térmica Avanzada")
 
 tabs = st.tabs(["CV005", "CV006", "CV007"])
 
 # ==========================================
-# PESTAÑA CORREA CV005
+# PESTAÑA: CORREA CV005
 # ==========================================
 with tabs[0]:
     correa_id = "CV005"
     df_ev = leer_datos(correa_id)
-    st.subheader(f"Estado Actual - {correa_id}")
+    st.subheader(f"Estado Actual de Operación - {correa_id}")
+    st.info("Tramo Activo: TP1 (Estación 3823) ➡️ Centro (Estación 2000) ⬅️ EM (Estación 1)")
     
     col_grafico, col_metricas = st.columns([4, 1])
 
@@ -139,20 +141,23 @@ with tabs[0]:
                     m_desde = obtener_metros_reales(d_num, correa_id, niv)
                     m_hasta = obtener_metros_reales(h_num, correa_id, niv)
                     
-                    # EFECTO NEÓN
+                    # CAPA DE RESPLANDOR (Glow Effect)
                     fig.add_trace(go.Scatter(
                         x=[xd, xh], y=[niv, niv], mode="lines", 
-                        line=dict(color=DICC_NIVELES[niv]["glow"], width=15),
+                        line=dict(color=DICC_NIVELES[niv]["glow"], width=16),
                         hoverinfo="skip", showlegend=False
                     ))
+                    # CAPA CENTRAL DE ALTA INTENSIDAD
                     fig.add_trace(go.Scatter(
                         x=[xd, xh], y=[niv, niv], mode="lines+markers", 
-                        line=dict(color=DICC_NIVELES[niv]["color"], width=3), marker=dict(size=8), 
-                        customdata=[[d_num, m_desde], [h_num, m_hasta]],
+                        line=dict(color=DICC_NIVELES[niv]["color"], width=3.5), marker=dict(size=8), 
+                        customdata=[[d_num, m_desde, fila['operador'], fila['nota']], [h_num, m_hasta, fila['operador'], fila['nota']]],
                         hovertemplate=(
                             f"<b>{DICC_NIVELES[niv]['nombre']}</b><br>"
                             "📍 Estación: %{customdata[0]}<br>"
-                            "📏 Ubicación: %{customdata[1]:.1f} m<br><extra></extra>"
+                            "📏 Posición: %{customdata[1]:.1f} m<br>"
+                            "👷 Operador: %{customdata[2]}<br>"
+                            "📝 Nota: %{customdata[3]}<extra></extra>"
                         ),
                         showlegend=False
                     ))
@@ -161,8 +166,8 @@ with tabs[0]:
         fig.update_layout(
             xaxis=dict(
                 tickvals=[-1823, -1000, 0, 1000, 1999], 
-                ticktext=["TP1 (3823)", "3000", "Centro (2000)", "1000", "EM (1)"], 
-                gridcolor="rgba(0,0,0,0.02)", tickangle=0
+                ticktext=["TP1 (3823) [0.0 m]", "3000", "Centro (2000)", "1000", "EM (1)"], 
+                gridcolor="rgba(255,255,255,0.03)", tickangle=0
             ), 
             yaxis=dict(range=[-3.0, 7.0], dtick=5, tickvals=list(DICC_NIVELES.keys()), ticktext=[n["nombre"] for n in DICC_NIVELES.values()]), 
             plot_bgcolor="rgba(0,0,0,0)", margin=dict(l=50, r=50, t=30, b=50), height=450
@@ -173,17 +178,18 @@ with tabs[0]:
         st.metric(label="🔴 Avance Troncal", value=f"{porc_troncal_05:.1f}%")
         st.metric(label="🟣 Avance Sensitiva", value=f"{porc_sensitiva_05:.1f}%")
         st.write("---")
-        st.metric(label="M. Troncal", value=f"{metros_troncal_05:.1f} m")
-        st.metric(label="M. Sensitiva", value=f"{metros_sensitiva_05:.1f} m")
+        st.metric(label="Metraje Troncal", value=f"{metros_troncal_05:.1f} m")
+        st.metric(label="Metraje Sensitiva", value=f"{metros_sensitiva_05:.1f} m")
 
 
 # ==========================================
-# PESTAÑA CORREA CV006
+# PESTAÑA: CORREA CV006
 # ==========================================
 with tabs[1]:
     correa_id = "CV006"
     df_ev = leer_datos(correa_id)
-    st.subheader(f"Estado Actual - {correa_id}")
+    st.subheader(f"Estado Actual de Operación - {correa_id}")
+    st.info("Distribución de Red: TP1 (3B Carga ➡️ 1845) | (1846 ➡️ 3526) TP2")
 
     col_grafico_06, col_metricas_06 = st.columns([4, 1])
 
@@ -221,19 +227,22 @@ with tabs[1]:
                     m_desde = obtener_metros_reales(n_d, correa_id, niv)
                     m_hasta = obtener_metros_reales(n_h, correa_id, niv)
                     
+                    # EFECTO HOLOGRÁFICO CV006
                     fig.add_trace(go.Scatter(
                         x=[xd, xh], y=[niv, niv], mode="lines", 
-                        line=dict(color=DICC_NIVELES[niv]["glow"], width=15),
+                        line=dict(color=DICC_NIVELES[niv]["glow"], width=16),
                         hoverinfo="skip", showlegend=False
                     ))
                     fig.add_trace(go.Scatter(
                         x=[xd, xh], y=[niv, niv], mode="lines+markers", 
-                        line=dict(color=DICC_NIVELES[niv]["color"], width=3), marker=dict(size=8), 
-                        customdata=[[fila['estacion_desde'], m_desde], [fila['estacion_hasta'], m_hasta]],
+                        line=dict(color=DICC_NIVELES[niv]["color"], width=3.5), marker=dict(size=8), 
+                        customdata=[[fila['estacion_desde'], m_desde, fila['operador'], fila['nota']], [fila['estacion_hasta'], m_hasta, fila['operador'], fila['nota']]],
                         hovertemplate=(
                             f"<b>{DICC_NIVELES[niv]['nombre']}</b><br>"
                             "📍 Estación: %{customdata[0]}<br>"
-                            "📏 Ubicación: %{customdata[1]:.1f} m<br><extra></extra>"
+                            "📏 Posición: %{customdata[1]:.1f} m<br>"
+                            "👷 Operador: %{customdata[2]}<br>"
+                            "📝 Nota: %{customdata[3]}<extra></extra>"
                         ),
                         showlegend=False
                     ))
@@ -242,8 +251,8 @@ with tabs[1]:
         fig.update_layout(
             xaxis=dict(
                 tickvals=[-3, 1845, 1846, 3526], 
-                ticktext=["3B Carga", "Centro (1845)", "Centro (1846)", "TP2 (3526)"], 
-                gridcolor="rgba(0,0,0,0.02)"
+                ticktext=["3B Carga (TP1) [0.0 m]", "Centro (1845)", "Centro (1846)", "TP2 (3526)"], 
+                gridcolor="rgba(255,255,255,0.03)"
             ), 
             yaxis=dict(range=[-3.0, 7.0], dtick=5, tickvals=list(DICC_NIVELES.keys()), ticktext=[n["nombre"] for n in DICC_NIVELES.values()]), 
             plot_bgcolor="rgba(0,0,0,0)", margin=dict(l=50, r=50, t=30, b=50), height=450
@@ -254,17 +263,18 @@ with tabs[1]:
         st.metric(label="🔴 Avance Troncal", value=f"{porc_troncal_06:.1f}%")
         st.metric(label="🟣 Avance Sensitiva", value=f"{porc_sensitiva_06:.1f}%")
         st.write("---")
-        st.metric(label="M. Troncal", value=f"{metros_troncal_06:.1f} m")
-        st.metric(label="M. Sensitiva", value=f"{metros_sensitiva_06:.1f} m")
+        st.metric(label="Metraje Troncal", value=f"{metros_troncal_06:.1f} m")
+        st.metric(label="Metraje Sensitiva", value=f"{metros_sensitiva_06:.1f} m")
 
 
 # ==========================================
-# PESTAÑA CORREA CV007
+# PESTAÑA: CORREA CV007
 # ==========================================
 with tabs[2]:
     correa_id = "CV007"
     df_ev = leer_datos(correa_id)
-    st.subheader(f"Estado Actual - {correa_id}")
+    st.subheader(f"Estado Actual de Operación - {correa_id}")
+    st.info("Línea de Despliegue: TP2 (Estación 3) ➡️ Shuttler (Estación 842)")
 
     col_grafico_07, col_metricas_07 = st.columns([4, 1])
 
@@ -297,19 +307,22 @@ with tabs[2]:
                     m_desde = obtener_metros_reales(xd, correa_id, niv)
                     m_hasta = obtener_metros_reales(xh, correa_id, niv)
                     
+                    # EFECTO HOLOGRÁFICO CV007
                     fig.add_trace(go.Scatter(
                         x=[xd, xh], y=[niv, niv], mode="lines", 
-                        line=dict(color=DICC_NIVELES[niv]["glow"], width=15),
+                        line=dict(color=DICC_NIVELES[niv]["glow"], width=16),
                         hoverinfo="skip", showlegend=False
                     ))
                     fig.add_trace(go.Scatter(
                         x=[xd, xh], y=[niv, niv], mode="lines+markers", 
-                        line=dict(color=DICC_NIVELES[niv]["color"], width=3), marker=dict(size=8), 
-                        customdata=[[xd, m_desde], [xh, m_hasta]],
+                        line=dict(color=DICC_NIVELES[niv]["color"], width=3.5), marker=dict(size=8), 
+                        customdata=[[xd, m_desde, fila['operador'], fila['nota']], [xh, m_hasta, fila['operador'], fila['nota']]],
                         hovertemplate=(
                             f"<b>{DICC_NIVELES[niv]['nombre']}</b><br>"
-                            "📍 Estación: %{customdata[0]}<br>"
-                            "📏 Ubicación: %{customdata[1]:.1f} m<br><extra></extra>"
+                            "📍 Estación: Est. %{customdata[0]}<br>"
+                            "📏 Posición: %{customdata[1]:.1f} m<br>"
+                            "👷 Operador: %{customdata[2]}<br>"
+                            "📝 Nota: %{customdata[3]}<extra></extra>"
                         ),
                         showlegend=False
                     ))
@@ -319,8 +332,8 @@ with tabs[2]:
             xaxis=dict(
                 range=[0, 850], 
                 tickvals=[3, 200, 400, 600, 842], 
-                ticktext=["TP2 (Est. 3)", "200", "400", "600", "Shuttler"], 
-                gridcolor="rgba(0,0,0,0.02)"
+                ticktext=["TP2 (Est. 3) [0.0 m]", "200", "400", "600", "Shuttler (Est. 842)"], 
+                gridcolor="rgba(255,255,255,0.03)"
             ), 
             yaxis=dict(range=[-3.0, 7.0], dtick=5, tickvals=list(DICC_NIVELES.keys()), ticktext=[n["nombre"] for n in DICC_NIVELES.values()]), 
             plot_bgcolor="rgba(0,0,0,0)", margin=dict(l=50, r=50, t=30, b=50), height=450
@@ -331,41 +344,64 @@ with tabs[2]:
         st.metric(label="🔴 Avance Troncal", value=f"{porc_troncal_07:.1f}%")
         st.metric(label="🟣 Avance Sensitiva", value=f"{porc_sensitiva_07:.1f}%")
         st.write("---")
-        st.metric(label="M. Troncal", value=f"{metros_troncal_07:.1f} m")
-        st.metric(label="M. Sensitiva", value=f"{metros_sensitiva_07:.1f} m")
+        st.metric(label="Metraje Troncal", value=f"{metros_troncal_07:.1f} m")
+        st.metric(label="Metraje Sensitiva", value=f"{metros_sensitiva_07:.1f} m")
+
+# ==========================================
+# TABLA INTEGRAL DE LOGS HISTÓRICOS (Para control del cliente)
+# ==========================================
+st.markdown("### 📋 Historial Consolidado de Registros de Campo")
+# Combinamos los datos de las 3 correas para mostrar una sola tabla limpia
+df_total = pd.concat([leer_datos("CV005"), leer_datos("CV006"), leer_datos("CV007")], ignore_index=True)
+
+if not df_total.empty:
+    df_total["nivel"] = df_total["nivel"].apply(lambda x: DICC_NIVELES.get(int(x), {"nombre": str(x)})["nombre"])
+    st.dataframe(
+        df_total[["correa_id", "operador", "estacion_desde", "estacion_hasta", "nivel", "nota", "created_at"]]
+        .rename(columns={
+            "correa_id": "Correa", "operador": "Operador", 
+            "estacion_desde": "Desde Est.", "estacion_hasta": "Hasta Est.", 
+            "nivel": "Tipo de Fibra", "nota": "Observación", "created_at": "Fecha Registro"
+        })
+        .sort_values(by="Fecha Registro", ascending=False), 
+        use_container_width=True
+    )
+else:
+    st.info("No se registran transmisiones previas en la base de datos central.")
+
 
 # ==========================================
 # FORMULARIOS UNIFICADOS EN EL LATERAL
 # ==========================================
-st.sidebar.title("📥 Panel de Control de Carga")
+st.sidebar.title("📥 Registro de Datos")
 
-with st.sidebar.expander("Registrar CV005"):
+with st.sidebar.expander("Ingreso Datos CV005"):
     with st.form(key="f_05"):
         op = st.text_input("Operador:", key="op05")
         niv = st.selectbox("Nivel / Condición:", list(DICC_NIVELES.keys()), format_func=lambda x: DICC_NIVELES[x]["nombre"], key="niv05")
-        frente = st.radio("Frente:", ["TP1 hacia Centro (Norte)", "EM hacia Centro (Sur)"], key="frente05")
-        d = st.number_input("Desde:", 1, 3823, 2000, key="d05")
-        h = st.number_input("Hasta:", 1, 3823, 2000, key="h05")
-        nota = st.text_input("Nota:", key="nota05")
-        if st.form_submit_button("Guardar CV005") and op:
+        frente = st.radio("Frente de Trabajo:", ["TP1 hacia Centro (Norte)", "EM hacia Centro (Sur)"], key="frente05")
+        d = st.number_input("Desde Estación:", 1, 3823, 2000, key="d05")
+        h = st.number_input("Hasta Estación:", 1, 3823, 2000, key="h05")
+        nota = st.text_input("Nota / Observación:", key="nota05")
+        if st.form_submit_button("Guardar Registro CV005") and op:
             if guardar_registro(op, d, h, niv, nota, "CV005"): st.rerun()
 
-with st.sidebar.expander("Registrar CV006"):
+with st.sidebar.expander("Ingreso Datos CV006"):
     with st.form(key="f_06"):
         op = st.text_input("Operador:", key="op06")
         niv = st.selectbox("Nivel / Condición:", list(DICC_NIVELES.keys()), format_func=lambda x: DICC_NIVELES[x]["nombre"], key="niv06")
-        d = st.text_input("Desde (Ej: 3B Carga o número):", "1", key="d06")
-        h = st.text_input("Hasta:", "1845", key="h06")
-        nota = st.text_input("Nota:", key="nota06")
-        if st.form_submit_button("Guardar CV006") and op:
+        d = st.text_input("Desde Estación (Ej: 3B Carga o Número):", "3B Carga", key="d06")
+        h = st.text_input("Hasta Estación:", "1845", key="h06")
+        nota = st.text_input("Nota / Observación:", key="nota06")
+        if st.form_submit_button("Guardar Registro CV006") and op:
             if guardar_registro(op, d, h, niv, nota, "CV006"): st.rerun()
 
-with st.sidebar.expander("Registrar CV007"):
+with st.sidebar.expander("Ingreso Datos CV007"):
     with st.form(key="f_07"):
         op = st.text_input("Operador:", key="op07")
         niv = st.selectbox("Nivel / Condición:", list(DICC_NIVELES.keys()), format_func=lambda x: DICC_NIVELES[x]["nombre"], key="niv07")
-        d = st.number_input("Desde:", 3, 842, 3, key="d07")
-        h = st.number_input("Hasta:", 3, 842, 842, key="h07")
-        nota = st.text_input("Nota:", key="nota07")
-        if st.form_submit_button("Guardar CV007") and op:
+        d = st.number_input("Desde Estación:", 3, 842, 3, key="d07")
+        h = st.number_input("Hasta Estación:", 3, 842, 842, key="h07")
+        nota = st.text_input("Nota / Observación:", key="nota07")
+        if st.form_submit_button("Guardar Registro CV007") and op:
             if guardar_registro(op, d, h, niv, nota, "CV007"): st.rerun()
