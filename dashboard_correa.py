@@ -49,7 +49,6 @@ def guardar_registro(operador, desde, hasta, nivel, nota, correa_id):
     val_desde = MAPEO_LETRAS_A_NUM.get(desde, desde)
     val_hasta = MAPEO_LETRAS_A_NUM.get(hasta, hasta)
     
-    # LIMPIEZA INTELIGENTE POR FRENTES
     if nivel in [0, 5]:
         try:
             if correa_id == "CV006":
@@ -150,7 +149,6 @@ with tabs[0]:
                     xd, xh = trans_x_05(d_num), trans_x_05(h_num)
                     dist = (abs(d_num - h_num) + 1) * (1.5 if niv == 0 else (14 if niv == 5 else 1.5))
                     
-                    # Modo optimizado: Solo líneas y puntos para evitar solapamientos visuales
                     fig.add_trace(go.Scatter(
                         x=[xd, xh], y=[niv, niv], mode="lines+markers", 
                         line=dict(color=DICC_NIVELES[niv]["color"], width=5), marker=dict(size=8), 
@@ -159,10 +157,11 @@ with tabs[0]:
                     ))
                 except: pass
 
+        # Eje X con metrajes explícitos en los extremos para CV005
         fig.update_layout(
             xaxis=dict(
                 tickvals=[-1823, -1000, 0, 1000, 1999], 
-                ticktext=["TP1 (3823)", "3000", "Centro (2000)", "1000", "EM (1)"], 
+                ticktext=["TP1 (3823) [0.0 m]", "3000", "Centro (2000)", "1000", "EM (1) [5734.5 m]"], 
                 gridcolor="rgba(0,0,0,0.1)",
                 tickangle=-45,
                 tickfont=dict(size=12)
@@ -208,7 +207,7 @@ with tabs[0]:
 
 
 # ==========================================
-# PESTAÑA CORREA CV006 (EJES Y SOLAPAMIENTOS REPARADOS)
+# PESTAÑA CORREA CV006 (CENTRO UNIFICADO Y METRAJES EN EXTREMOS)
 # ==========================================
 with tabs[1]:
     correa_id = "CV006"
@@ -264,11 +263,11 @@ with tabs[1]:
                     ))
                 except: pass
 
-        # Distribución perfecta de etiquetas en el eje X para evitar empalmes en CV006
+        # Corrección: Unificación del punto central '1845 | 1846' para evitar encimarse y metraje en puntas
         fig.update_layout(
             xaxis=dict(
-                tickvals=[trans_x_06("3B Carga"), trans_x_06("1845"), trans_x_06("1846"), trans_x_06("3526")], 
-                ticktext=["3B Carga (TP1)", "Centro (1845)", "Centro (1846)", "TP2 (3526)"], 
+                tickvals=[trans_x_06("3B Carga"), 0, trans_x_06("3526")], 
+                ticktext=["3B Carga (TP1) [0.0 m]", "Centro (1845 | 1846)", "TP2 (3526) [5293.5 m]"], 
                 gridcolor="rgba(0,0,0,0.1)",
                 tickangle=-45,
                 tickfont=dict(size=12)
@@ -326,7 +325,7 @@ with tabs[1]:
 
 
 # ==========================================
-# PESTAÑA CORREA CV007
+# PESTAÑA CORREA CV007 (MÉTRICA DE EXTREMO REPARADA)
 # ==========================================
 with tabs[2]:
     correa_id = "CV007"
@@ -372,11 +371,12 @@ with tabs[2]:
                     ))
                 except: pass
 
+        # Eje X con metrajes explícitos en los extremos para CV007
         fig.update_layout(
             xaxis=dict(
                 range=[0, 850], 
                 tickvals=[3, 200, 400, 600, 842], 
-                ticktext=["TP2 (Est. 3)", "200", "400", "600", "Shuttler (Est. 842)"], 
+                ticktext=["TP2 (Est. 3) [0.0 m]", "200", "400", "600", "Shuttler (Est. 842) [1260.0 m]"], 
                 gridcolor="rgba(0,0,0,0.1)",
                 tickangle=-45,
                 tickfont=dict(size=12)
