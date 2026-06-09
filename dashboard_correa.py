@@ -94,7 +94,7 @@ img_tecnica_base64 = get_base64_img('correa_tecnica.png')
 
 # 5. ENCABEZADO PRINCIPAL DE LA PLATAFORMA
 st.title("📊 SISTEMA DE MONITOREO DE POLINES MEDIANTE FIBRA ÓPTICA")
-st.caption("Centro de Mando de Telemetría Térmica Avanzada")
+st.caption("NICOLAIDES INDUSTRIAL S.A")
 
 dict_dfs = {}
 tabs = st.tabs(["CV005", "CV006", "CV007"])
@@ -108,7 +108,7 @@ with tabs[0]:
     dict_dfs[correa_id] = df_ev
     
     st.subheader(f"Estado Actual de Operación - {correa_id}")
-    st.info("Tramo Activo: TP1 (Estación 3823) ➡️ Centro (Estación 2000) ⬅️ EM (Estación 1)")
+    st.info("TP1 (Estación 3823) ➡️ Centro (Estación 2000) ⬅️ EM (Estación 1)")
     
     col_grafico, col_metricas = st.columns([4, 1])
 
@@ -193,7 +193,7 @@ with tabs[1]:
     dict_dfs[correa_id] = df_ev
     
     st.subheader(f"Estado Actual de Operación - {correa_id}")
-    st.info("Distribución de Red: TP1 (3B Carga ➡️ 1845) | (1846 ➡️ 3526) TP2")
+    st.info("TP1 (3B Carga ➡️ 1845) | (1846 ⬅️ 3526) TP2")
 
     col_grafico_06, col_metricas_06 = st.columns([4, 1])
 
@@ -277,7 +277,7 @@ with tabs[2]:
     dict_dfs[correa_id] = df_ev
     
     st.subheader(f"Estado Actual de Operación - {correa_id}")
-    st.info("Línea de Despliegue: TP2 (Estación 3) ➡️ Shuttler (Estación 842)")
+    st.info("TP2 (Estación 3) ➡️ Shuttler (Estación 842)")
 
     col_grafico_07, col_metricas_07 = st.columns([4, 1])
 
@@ -352,7 +352,7 @@ with tabs[2]:
 # ==========================================
 # HISTORIAL CONSOLIDADO DE REGISTROS DE CAMPO
 # ==========================================
-st.markdown("### 📋 Historial Consolidado de Registros de Campo")
+st.markdown("### 📋 Historial de Registros")
 
 lista_dfs = [df for df in dict_dfs.values() if not df.empty]
 if lista_dfs:
