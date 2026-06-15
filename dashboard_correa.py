@@ -4,10 +4,14 @@ import plotly.graph_objects as go
 from supabase import create_client, Client
 import base64
 
+# ==========================================
 # 1. CONFIGURACIÓN DE PÁGINA
+# ==========================================
 st.set_page_config(layout="wide", page_title="Sistema Monitoreo Global - CV")
 
+# ==========================================
 # 2. CONEXIÓN A SUPABASE
+# ==========================================
 SUPABASE_URL = "https://aumkuyciwmeevnwtsvpy.supabase.co"
 SUPABASE_KEY = "sb_publishable_5Iq0mHkNsetilyAFFQo1tw_-dth1liU"
 
@@ -28,7 +32,9 @@ DICC_NIVELES = {
     5: {"nombre": "Fibra Óptica Sensitiva Monitoreada", "color": "#E066FF", "glow": "rgba(224, 102, 255, 0.25)"}
 }
 
+# ==========================================
 # 3. FUNCIONES DE BASE DE DATOS Y LOGÍSTICA
+# ==========================================
 def leer_datos(correa_id):
     try:
         response = supabase.table("eventos_correa").select("*").eq("correa_id", correa_id).in_("nivel", [0, 5]).execute()
@@ -75,7 +81,7 @@ def guardar_registro(operador, desde, hasta, nivel, nota, correa_id):
         return False
 
 def obtener_metros_reales(num_estacion, correa_id, nivel):
-    factor = 1.5 if int(nivel) == 0 else (17.343 if correa_id == "CV007" else 14.23)
+    factor = 1.5 if int(nivel) == 0 else (17.0 if correa_id == "CV007" else 14.0)
     if correa_id == "CV005":
         return (3823 - int(num_estacion)) * factor
     elif correa_id == "CV006":
@@ -84,17 +90,47 @@ def obtener_metros_reales(num_estacion, correa_id, nivel):
         return (int(num_estacion) - 3) * factor
     return 0.0
 
-# 4. TRATAMIENTO DE IMAGEN DE FONDO
+# ==========================================
+# 4. TRATAMIENTO DE IMÁGENES DE FONDO (CSS)
+# ==========================================
 def get_base64_img(file):
     try:
-        with open(file, 'rb') as f: return base64.b64encode(f.read()).decode()
-    except: return None
+        with open(file, 'rb') as f: 
+            return base64.b64encode(f.read()).decode()
+    except: 
+        return None
 
 img_tecnica_base64 = get_base64_img('correa_tecnica.png') 
+img_fondo_dashboard = get_base64_img('fondo_pantalla.jpeg')
 
+if img_fondo_dashboard:
+    page_bg_img = f"""
+    <style>
+    [data-testid="stAppViewContainer"] {{
+        background-image: url("data:image/jpeg;base64,{img_fondo_dashboard}");
+        background-size: cover;
+        background-position: center;
+        background-repeat: no-repeat;
+        background-attachment: fixed;
+    }}
+    [data-testid="stSidebar"] {{
+        background-color: rgba(20, 26, 40, 0.9) !important;
+    }}
+    [data-testid="stMainBlockContainer"] {{
+        background-color: rgba(10, 14, 26, 0.75);
+        padding: 2rem 3rem;
+        border-radius: 12px;
+        margin-top: 1rem;
+    }}
+    </style>
+    """
+    st.markdown(page_bg_img, unsafe_allow_html=True)
+
+# ==========================================
 # 5. ENCABEZADO PRINCIPAL DE LA PLATAFORMA
+# ==========================================
 st.title("📊 SISTEMA DE MONITOREO DE POLINES MEDIANTE FIBRA ÓPTICA")
-st.caption("NICOLAIDES INDUSTRIAL S.A")
+st.caption("Centro de Mando de Telemetría Térmica Avanzada")
 
 dict_dfs = {}
 tabs = st.tabs(["CV005", "CV006", "CV007"])
@@ -108,7 +144,7 @@ with tabs[0]:
     dict_dfs[correa_id] = df_ev
     
     st.subheader(f"Estado Actual de Operación - {correa_id}")
-    st.info("TP1 (Estación 3823) ➡️ Centro (Estación 2000) ⬅️ EM (Estación 1)")
+    st.info("Tramo Activo: TP1 (Estación 3823) ➡️ Centro (Estación 2000) ⬅️ EM (Estación 1)")
     
     col_grafico, col_metricas = st.columns([4, 1])
 
@@ -193,7 +229,7 @@ with tabs[1]:
     dict_dfs[correa_id] = df_ev
     
     st.subheader(f"Estado Actual de Operación - {correa_id}")
-    st.info("TP1 (3B Carga ➡️ 1845) | (1846 ⬅️ 3526) TP2")
+    st.info("Distribución de Red: TP1 (3B Carga ➡️ 1845) | (1846 ➡️ 3526) TP2")
 
     col_grafico_06, col_metricas_06 = st.columns([4, 1])
 
@@ -277,7 +313,7 @@ with tabs[2]:
     dict_dfs[correa_id] = df_ev
     
     st.subheader(f"Estado Actual de Operación - {correa_id}")
-    st.info("TP2 (Estación 3) ➡️ Shuttler (Estación 842)")
+    st.info("Línea de Despliegue: TP2 (Estación 3) ➡️ Shuttler (Estación 842)")
 
     col_grafico_07, col_metricas_07 = st.columns([4, 1])
 
@@ -350,7 +386,7 @@ with tabs[2]:
 
 
 # ==========================================
-# HISTORIAL CONSOLIDADO DE REGISTROS DE CAMPO
+# 6. HISTORIAL CON CONVERSION CRONOLÓGICA (CL)
 # ==========================================
 st.markdown("### 📋 Historial Consolidado de Registros de Campo")
 
@@ -359,23 +395,19 @@ if lista_dfs:
     df_total = pd.concat(lista_dfs, ignore_index=True)
     df_total["nivel"] = df_total["nivel"].apply(lambda x: DICC_NIVELES.get(int(x), {"nombre": str(x)})["nombre"])
     
-    # 1. Convertimos a datetime real y ajustamos al huso horario de Chile
+    # 1. Convertimos a objeto Datetime real adaptando la zona horaria chilena actual (-04:00)
     df_total["created_at_dt"] = pd.to_datetime(df_total["created_at"], utc=True).dt.tz_convert("America/Santiago")
     
-    # 2. Creamos la columna visual ya formateada como texto para mostrar en la tabla
+    # 2. Generamos el formato visual legible de tipo texto
     df_total["Fecha Registro"] = df_total["created_at_dt"].dt.strftime('%d-%m-%Y %H:%M')
     
-    # Renombramos las demás columnas antes del despliegue
     df_mostrar = df_total[["correa_id", "operador", "estacion_desde", "estacion_hasta", "nivel", "nota", "Fecha Registro", "created_at_dt"]].rename(columns={
-        "correa_id": "Correa", 
-        "operador": "Operador", 
-        "estacion_desde": "Desde Est.", 
-        "estacion_hasta": "Hasta Est.", 
-        "nivel": "Tipo de Fibra", 
-        "nota": "Observación"
+        "correa_id": "Correa", "operador": "Operador", 
+        "estacion_desde": "Desde Est.", "estacion_hasta": "Hasta Est.", 
+        "nivel": "Tipo de Fibra", "nota": "Observación"
     })
     
-    # 3. 🔥 EL TRUCO: Ordenamos usando la columna datetime real (invisible en el DF final) para que sea cronológico
+    # 3. Ordenamos usando la estampa cronológica exacta antes de descartarla de la vista
     df_mostrar = df_mostrar.sort_values(by="created_at_dt", ascending=False).drop(columns=["created_at_dt"])
     
     st.dataframe(df_mostrar, use_container_width=True)
@@ -384,7 +416,7 @@ else:
 
 
 # ==========================================
-# FORMULARIOS UNIFICADOS EN EL LATERAL
+# 7. FORMULARIOS UNIFICADOS EN EL LATERAL
 # ==========================================
 st.sidebar.title("📥 Registro de Datos")
 
@@ -399,7 +431,7 @@ with st.sidebar.expander("Ingreso Datos CV005"):
         if st.form_submit_button("Guardar Registro CV005") and op:
             if guardar_registro(op, d, h, niv, nota, "CV005"): st.rerun()
 
-# 🛠️ SOLUCIÓN TOTAL DEFINITIVA PARA CV006 CON CONTROLES INDEPENDIENTES POR LLAVE (KEY)
+# FORMULARIO CORREGIDO CV006: Evita colisiones de memoria en el cambio de frente de trabajo
 with st.sidebar.expander("Ingreso Datos CV006"):
     with st.form(key="f_06"):
         op = st.text_input("Operador:", key="op06")
@@ -407,7 +439,6 @@ with st.sidebar.expander("Ingreso Datos CV006"):
         
         frente_06 = st.radio("Frente de Trabajo:", ["3B Carga hacia Centro (1845)", "1846 hacia TP2 (3526)"], key="frente06")
         
-        # Al separar las variables d y h en bloques con llaves independientes, el estado interno no colisiona
         if frente_06 == "3B Carga hacia Centro (1845)":
             d = st.number_input("Desde Estación:", min_value=-3, max_value=1845, value=-3, step=1, key="d06_carga", format="%d")
             h = st.number_input("Hasta Estación:", min_value=-3, max_value=1845, value=1845, step=1, key="h06_carga", format="%d")
