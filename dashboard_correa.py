@@ -75,7 +75,7 @@ def guardar_registro(operador, desde, hasta, nivel, nota, correa_id):
         return False
 
 def obtener_metros_reales(num_estacion, correa_id, nivel):
-    factor = 1.5 if int(nivel) == 0 else (17.0 if correa_id == "CV007" else 14.0)
+    factor = 1.5 if int(nivel) == 0 else (17.343 if correa_id == "CV007" else 14.23)
     if correa_id == "CV005":
         return (3823 - int(num_estacion)) * factor
     elif correa_id == "CV006":
