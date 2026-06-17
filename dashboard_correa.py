@@ -327,7 +327,7 @@ with tabs[2]:
             elif int(f["nivel"]) == 5: metros_sensitiva_07 += cant_est * 17.0
 
     porc_troncal_07 = min(((metros_troncal_07 / 1.5) / total_estaciones_07) * 100, 100.0) if total_estaciones_07 > 0 else 0
-    porc_sensitiva_07 = min(((metros_sensitiva_07 / 17.0) / total_estaciones_07) * 100, 100.0) if total_estaciones_07 > 0 else 0
+    porc_sensitiva_07 = min(((metros_sensitiva_07 / 17.2) / total_estaciones_07) * 100, 100.0) if total_estaciones_07 > 0 else 0
 
     with col_grafico_07:
         fig = go.Figure()
