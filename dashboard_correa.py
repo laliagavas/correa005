@@ -461,18 +461,215 @@ else:
     st.info("Sin registros en la base de datos aún.")
 
 # ============================================================
-# 12. SIDEBAR
+# 12. FORMULARIOS DE INGRESO (página principal, pestañas)
+# ============================================================
+st.markdown("<div style='height:14px'></div>", unsafe_allow_html=True)
+st.markdown("""
+<div style="font-size:11px;font-weight:500;color:rgba(255,255,255,0.4);
+            text-transform:uppercase;letter-spacing:1px;margin-bottom:10px">
+  Ingreso de datos
+</div>
+""", unsafe_allow_html=True)
+
+ftab05, ftab06, ftab07 = st.tabs(["➕ CV005", "➕ CV006", "➕ CV007"])
+
+# ── CV005 ────────────────────────────────────────────────────
+with ftab05:
+    col_f, col_info = st.columns([2, 1])
+    with col_f:
+        with st.form(key="form_CV005"):
+            fa, fb = st.columns(2)
+            with fa:
+                op = st.text_input("Operador", key="op_CV005", placeholder="Nombre")
+            with fb:
+                tipo_evento = st.selectbox("Tipo de evento", TIPOS_EVENTO, key="tipo_CV005")
+
+            fc, fd = st.columns(2)
+            with fc:
+                niv = st.selectbox("Tipo de fibra", [0, 5],
+                                   format_func=lambda x: "Troncal" if x == 0 else "Sensitiva",
+                                   key="niv_CV005")
+            with fd:
+                frente_sel = st.selectbox(
+                    "Frente de trabajo",
+                    ["TP1 → Centro (Est. 3823 → 2000)", "EM → Centro (Est. 1 → 2000)"],
+                    key="frente_CV005"
+                )
+            fk = "tp1" if "TP1" in frente_sel else "em"
+
+            fe, ff = st.columns(2)
+            if fk == "tp1":
+                with fe:
+                    d = st.number_input("Desde Est.", min_value=2000, max_value=3823, value=3823, step=1, key="d05t", format="%d")
+                with ff:
+                    h = st.number_input("Hasta Est.", min_value=2000, max_value=3823, value=2000, step=1, key="h05t", format="%d")
+            else:
+                with fe:
+                    d = st.number_input("Desde Est.", min_value=1, max_value=2000, value=1, step=1, key="d05e", format="%d")
+                with ff:
+                    h = st.number_input("Hasta Est.", min_value=1, max_value=2000, value=2000, step=1, key="h05e", format="%d")
+
+            factor = FACTORES["CV005"]["troncal"] if niv == 0 else FACTORES["CV005"]["sensitiva"]
+            st.caption(f"📏 {abs(int(h)-int(d))} est × {factor:.3f} m/est = **{abs(int(h)-int(d))*factor:,.1f} m**")
+            nota = st.text_input("Observación", key="nota_CV005", placeholder="Opcional")
+
+            if st.form_submit_button("💾 Guardar registro CV005", use_container_width=True):
+                if not op.strip():
+                    st.error("Ingresa el operador.")
+                elif guardar_registro(op.strip(), d, h, niv, nota, tipo_evento, "CV005", fk):
+                    st.success(f"✅ Guardado — CV005 / Frente {fk.upper()}")
+                    st.rerun()
+
+    with col_info:
+        st.markdown("""
+        <div style="background:rgba(255,255,255,0.03);border:0.5px solid rgba(255,255,255,0.07);
+                    border-radius:10px;padding:14px 16px;margin-top:2px">
+          <div style="font-size:10px;text-transform:uppercase;letter-spacing:.8px;
+                      color:rgba(255,255,255,0.35);margin-bottom:10px">Referencia CV005</div>
+          <div style="font-size:11px;color:rgba(255,255,255,0.5);line-height:1.8">
+            <span style="color:#E24B4A">●</span> Troncal: 1.547 m/est<br>
+            <span style="color:#7F77DD">●</span> Sensitiva: 10.83 m/est<br><br>
+            <span style="color:rgba(255,255,255,0.3)">Frente TP1</span><br>
+            Est. 3823 → 2000 (decrece)<br><br>
+            <span style="color:rgba(255,255,255,0.3)">Frente EM</span><br>
+            Est. 1 → 2000 (crece)
+          </div>
+        </div>
+        """, unsafe_allow_html=True)
+
+# ── CV006 ────────────────────────────────────────────────────
+with ftab06:
+    col_f, col_info = st.columns([2, 1])
+    with col_f:
+        with st.form(key="form_CV006"):
+            fa, fb = st.columns(2)
+            with fa:
+                op = st.text_input("Operador", key="op_CV006", placeholder="Nombre")
+            with fb:
+                tipo_evento = st.selectbox("Tipo de evento", TIPOS_EVENTO, key="tipo_CV006")
+
+            fc, fd = st.columns(2)
+            with fc:
+                niv = st.selectbox("Tipo de fibra", [0, 5],
+                                   format_func=lambda x: "Troncal" if x == 0 else "Sensitiva",
+                                   key="niv_CV006")
+            with fd:
+                frente_sel = st.selectbox(
+                    "Frente de trabajo",
+                    ["TP1 → Centro (3B Carga → Est. 1845)", "TP2 → Centro (Est. 3526 → 1846)"],
+                    key="frente_CV006"
+                )
+            fk = "tp1" if "TP1" in frente_sel else "tp2"
+
+            fe, ff = st.columns(2)
+            if fk == "tp1":
+                with fe:
+                    d = st.number_input("Desde Est.", min_value=-3, max_value=1845, value=-3, step=1, key="d06t", format="%d")
+                with ff:
+                    h = st.number_input("Hasta Est.", min_value=-3, max_value=1845, value=1845, step=1, key="h06t", format="%d")
+            else:
+                with fe:
+                    d = st.number_input("Desde Est.", min_value=1846, max_value=3526, value=3526, step=1, key="d06p", format="%d")
+                with ff:
+                    h = st.number_input("Hasta Est.", min_value=1846, max_value=3526, value=1846, step=1, key="h06p", format="%d")
+
+            factor = FACTORES["CV006"]["troncal"] if niv == 0 else FACTORES["CV006"]["sensitiva"]
+            st.caption(f"📏 {abs(int(h)-int(d))} est × {factor:.3f} m/est = **{abs(int(h)-int(d))*factor:,.1f} m**")
+            nota = st.text_input("Observación", key="nota_CV006", placeholder="Opcional")
+
+            if st.form_submit_button("💾 Guardar registro CV006", use_container_width=True):
+                if not op.strip():
+                    st.error("Ingresa el operador.")
+                elif guardar_registro(op.strip(), d, h, niv, nota, tipo_evento, "CV006", fk):
+                    st.success(f"✅ Guardado — CV006 / Frente {fk.upper()}")
+                    st.rerun()
+
+    with col_info:
+        st.markdown("""
+        <div style="background:rgba(255,255,255,0.03);border:0.5px solid rgba(255,255,255,0.07);
+                    border-radius:10px;padding:14px 16px;margin-top:2px">
+          <div style="font-size:10px;text-transform:uppercase;letter-spacing:.8px;
+                      color:rgba(255,255,255,0.35);margin-bottom:10px">Referencia CV006</div>
+          <div style="font-size:11px;color:rgba(255,255,255,0.5);line-height:1.8">
+            <span style="color:#E24B4A">●</span> Troncal: 1.665 m/est<br>
+            <span style="color:#7F77DD">●</span> Sensitiva: 13.66 m/est<br><br>
+            <span style="color:rgba(255,255,255,0.3)">Frente TP1</span><br>
+            3B Carga (−3) → 1845 (crece)<br><br>
+            <span style="color:rgba(255,255,255,0.3)">Frente TP2</span><br>
+            Est. 3526 → 1846 (decrece)
+          </div>
+        </div>
+        """, unsafe_allow_html=True)
+
+# ── CV007 ────────────────────────────────────────────────────
+with ftab07:
+    col_f, col_info = st.columns([2, 1])
+    with col_f:
+        with st.form(key="form_CV007"):
+            fa, fb = st.columns(2)
+            with fa:
+                op = st.text_input("Operador", key="op_CV007", placeholder="Nombre")
+            with fb:
+                tipo_evento = st.selectbox("Tipo de evento", TIPOS_EVENTO, key="tipo_CV007")
+
+            fc, fd = st.columns(2)
+            with fc:
+                niv = st.selectbox("Tipo de fibra", [0, 5],
+                                   format_func=lambda x: "Troncal" if x == 0 else "Sensitiva",
+                                   key="niv_CV007")
+            with fd:
+                st.markdown("""
+                <div style="padding-top:28px;font-size:11px;color:rgba(255,255,255,0.4)">
+                  Frente único · Est. 3 → 842
+                </div>
+                """, unsafe_allow_html=True)
+
+            r = EST_RANGES["CV007"]
+            fe, ff = st.columns(2)
+            with fe:
+                d = st.number_input("Desde Est.", min_value=r["min"], max_value=r["max"], value=r["min"], key="d07", format="%d")
+            with ff:
+                h = st.number_input("Hasta Est.", min_value=r["min"], max_value=r["max"], value=r["max"], key="h07", format="%d")
+
+            factor = FACTORES["CV007"]["troncal"] if niv == 0 else FACTORES["CV007"]["sensitiva"]
+            st.caption(f"📏 {abs(int(h)-int(d))} est × {factor:.3f} m/est = **{abs(int(h)-int(d))*factor:,.1f} m**")
+            nota = st.text_input("Observación", key="nota_CV007", placeholder="Opcional")
+
+            if st.form_submit_button("💾 Guardar registro CV007", use_container_width=True):
+                if not op.strip():
+                    st.error("Ingresa el operador.")
+                elif guardar_registro(op.strip(), d, h, niv, nota, tipo_evento, "CV007", "unico"):
+                    st.success("✅ Guardado — CV007")
+                    st.rerun()
+
+    with col_info:
+        st.markdown("""
+        <div style="background:rgba(255,255,255,0.03);border:0.5px solid rgba(255,255,255,0.07);
+                    border-radius:10px;padding:14px 16px;margin-top:2px">
+          <div style="font-size:10px;text-transform:uppercase;letter-spacing:.8px;
+                      color:rgba(255,255,255,0.35);margin-bottom:10px">Referencia CV007</div>
+          <div style="font-size:11px;color:rgba(255,255,255,0.5);line-height:1.8">
+            <span style="color:#E24B4A">●</span> Troncal: 1.595 m/est<br>
+            <span style="color:#7F77DD">●</span> Sensitiva: 17.36 m/est<br><br>
+            <span style="color:rgba(255,255,255,0.3)">Frente único</span><br>
+            TP2 (Est. 3) → Shuttler (Est. 842)<br><br>
+            <span style="color:#8dc63f">✓ 100% completada</span>
+          </div>
+        </div>
+        """, unsafe_allow_html=True)
+
+# ============================================================
+# 13. SIDEBAR — solo estado rápido + calculadora
 # ============================================================
 with st.sidebar:
     st.markdown("""
     <div style="padding:8px 0 10px">
       <div style="font-size:10px;text-transform:uppercase;letter-spacing:1.3px;
                   color:rgba(255,255,255,0.3);margin-bottom:3px">Panel de operación</div>
-      <div style="font-size:14px;font-weight:500;color:#F0F2F5">Registro de datos</div>
+      <div style="font-size:14px;font-weight:500;color:#F0F2F5">Estado general</div>
     </div>
     """, unsafe_allow_html=True)
 
-    st.markdown("**Estado rápido**")
     for cid, pct_val in [("CV005", met_05["pct_s"]), ("CV006", met_06["pct_s"]), ("CV007", 100.0)]:
         color_bar = "#639922" if pct_val >= 100 else "#7F77DD"
         st.markdown(f"""
@@ -490,7 +687,6 @@ with st.sidebar:
 
     st.markdown("---")
 
-    # ── CALCULADORA METROS ↔ ESTACIÓN ─────────────────────
     st.markdown("""
     <div style="font-size:11px;font-weight:500;color:rgba(255,255,255,0.4);
                 text-transform:uppercase;letter-spacing:1px;margin-bottom:8px">
@@ -499,14 +695,10 @@ with st.sidebar:
     """, unsafe_allow_html=True)
 
     with st.expander("🔢 Metros → Estación"):
-        calc_correa = st.selectbox(
-            "Correa", ["CV005", "CV006", "CV007"], key="calc_correa"
-        )
-        calc_fibra = st.selectbox(
-            "Tipo de fibra", [0, 5],
-            format_func=lambda x: "Troncal" if x == 0 else "Sensitiva",
-            key="calc_fibra"
-        )
+        calc_correa = st.selectbox("Correa", ["CV005", "CV006", "CV007"], key="calc_correa")
+        calc_fibra  = st.selectbox("Tipo de fibra", [0, 5],
+                                   format_func=lambda x: "Troncal" if x == 0 else "Sensitiva",
+                                   key="calc_fibra")
         calc_frente_opts = {
             "CV005": ["TP1 (origen Est. 3823)", "EM (origen Est. 1)"],
             "CV006": ["TP1 (origen Est. -3 / 3B Carga)", "TP2 (origen Est. 3526)"],
@@ -516,19 +708,14 @@ with st.sidebar:
             "Frente / origen", calc_frente_opts[calc_correa], key="calc_frente"
         )
         calc_metros = st.number_input(
-            "Metros entregados por SmartVision",
-            min_value=0.0, value=0.0, step=1.0,
-            key="calc_metros", format="%.1f"
+            "Metros SmartVision",
+            min_value=0.0, value=0.0, step=1.0, key="calc_metros", format="%.1f"
         )
 
-        # Determinar factor y origen según selección
         factor_calc = (
-            FACTORES[calc_correa]["troncal"]
-            if calc_fibra == 0
+            FACTORES[calc_correa]["troncal"] if calc_fibra == 0
             else FACTORES[calc_correa]["sensitiva"]
         )
-
-        # Origen y dirección según frente
         origenes = {
             "CV005": {"TP1 (origen Est. 3823)": (3823, -1), "EM (origen Est. 1)": (1, 1)},
             "CV006": {"TP1 (origen Est. -3 / 3B Carga)": (-3, 1), "TP2 (origen Est. 3526)": (3526, -1)},
@@ -537,22 +724,18 @@ with st.sidebar:
         origen_est, direccion = origenes[calc_correa][calc_frente_sel]
 
         if factor_calc > 0 and calc_metros > 0:
-            est_calculada = origen_est + direccion * (calc_metros / factor_calc)
-            est_calculada = round(est_calculada)
-
-            # Clamp dentro del rango válido
+            est_calculada = round(origen_est + direccion * (calc_metros / factor_calc))
             rango = EST_RANGES[calc_correa]
             est_calculada = max(rango["min"], min(rango["max"], est_calculada))
-
             st.markdown(f"""
             <div style="background:rgba(55,138,221,0.08);border:0.5px solid rgba(55,138,221,0.25);
                         border-radius:8px;padding:12px 14px;margin-top:6px">
               <div style="font-size:10px;color:rgba(255,255,255,0.4);margin-bottom:4px;
                           text-transform:uppercase;letter-spacing:.6px">Estación equivalente</div>
-              <div style="font-size:22px;font-weight:500;color:#378ADD">Est. {est_calculada:,}</div>
+              <div style="font-size:24px;font-weight:500;color:#378ADD">Est. {est_calculada:,}</div>
               <div style="font-size:10px;color:rgba(255,255,255,0.35);margin-top:4px">
                 {calc_metros:,.1f} m ÷ {factor_calc:.3f} m/est = {calc_metros/factor_calc:.1f} est<br>
-                Origen Est. {origen_est} {'↑' if direccion == 1 else '↓'} · Correa {calc_correa}
+                Origen Est. {origen_est} {'↑' if direccion == 1 else '↓'} · {calc_correa}
               </div>
             </div>
             """, unsafe_allow_html=True)
@@ -564,90 +747,3 @@ with st.sidebar:
               Ingresa los metros para calcular
             </div>
             """, unsafe_allow_html=True)
-
-    st.markdown("---")
-
-    # ── CV005 ─────────────────────────────────────────────
-    with st.expander("➕ Ingreso datos CV005"):
-        with st.form(key="form_CV005"):
-            op          = st.text_input("Operador", key="op_CV005", placeholder="Nombre")
-            tipo_evento = st.selectbox("Tipo de evento", TIPOS_EVENTO, key="tipo_CV005")
-            niv         = st.selectbox("Tipo de fibra", [0, 5],
-                                       format_func=lambda x: "Troncal" if x == 0 else "Sensitiva",
-                                       key="niv_CV005")
-            frente_sel  = st.radio("Frente de trabajo",
-                                   ["TP1 → Centro (3823 → 2000)", "EM → Centro (1 → 2000)"],
-                                   key="frente_CV005")
-            fk = "tp1" if "TP1" in frente_sel else "em"
-
-            if fk == "tp1":
-                d = st.number_input("Desde Est.", min_value=2000, max_value=3823, value=3823, step=1, key="d05t", format="%d")
-                h = st.number_input("Hasta Est.", min_value=2000, max_value=3823, value=2000, step=1, key="h05t", format="%d")
-            else:
-                d = st.number_input("Desde Est.", min_value=1, max_value=2000, value=1,    step=1, key="d05e", format="%d")
-                h = st.number_input("Hasta Est.", min_value=1, max_value=2000, value=2000, step=1, key="h05e", format="%d")
-
-            factor = FACTORES["CV005"]["troncal"] if niv == 0 else FACTORES["CV005"]["sensitiva"]
-            st.caption(f"📏 {abs(int(h)-int(d))} est × {factor:.2f} = **{abs(int(h)-int(d))*factor:,.1f} m**")
-            nota = st.text_input("Observación", key="nota_CV005", placeholder="Opcional")
-
-            if st.form_submit_button("💾 Guardar CV005"):
-                if not op.strip():
-                    st.error("Ingresa el operador.")
-                elif guardar_registro(op.strip(), d, h, niv, nota, tipo_evento, "CV005", fk):
-                    st.success(f"✅ Guardado — CV005 / {fk.upper()}")
-                    st.rerun()
-
-    # ── CV006 ─────────────────────────────────────────────
-    with st.expander("➕ Ingreso datos CV006"):
-        with st.form(key="form_CV006"):
-            op          = st.text_input("Operador", key="op_CV006", placeholder="Nombre")
-            tipo_evento = st.selectbox("Tipo de evento", TIPOS_EVENTO, key="tipo_CV006")
-            niv         = st.selectbox("Tipo de fibra", [0, 5],
-                                       format_func=lambda x: "Troncal" if x == 0 else "Sensitiva",
-                                       key="niv_CV006")
-            frente_sel  = st.radio("Frente de trabajo",
-                                   ["TP1 → Centro (3B Carga → 1845)", "TP2 → Centro (3526 → 1846)"],
-                                   key="frente_CV006")
-            fk = "tp1" if "TP1" in frente_sel else "tp2"
-
-            if fk == "tp1":
-                d = st.number_input("Desde Est.", min_value=-3,  max_value=1845, value=-3,   step=1, key="d06t", format="%d")
-                h = st.number_input("Hasta Est.", min_value=-3,  max_value=1845, value=1845, step=1, key="h06t", format="%d")
-            else:
-                d = st.number_input("Desde Est.", min_value=1846, max_value=3526, value=3526, step=1, key="d06p", format="%d")
-                h = st.number_input("Hasta Est.", min_value=1846, max_value=3526, value=1846, step=1, key="h06p", format="%d")
-
-            factor = FACTORES["CV006"]["troncal"] if niv == 0 else FACTORES["CV006"]["sensitiva"]
-            st.caption(f"📏 {abs(int(h)-int(d))} est × {factor:.2f} = **{abs(int(h)-int(d))*factor:,.1f} m**")
-            nota = st.text_input("Observación", key="nota_CV006", placeholder="Opcional")
-
-            if st.form_submit_button("💾 Guardar CV006"):
-                if not op.strip():
-                    st.error("Ingresa el operador.")
-                elif guardar_registro(op.strip(), d, h, niv, nota, tipo_evento, "CV006", fk):
-                    st.success(f"✅ Guardado — CV006 / {fk.upper()}")
-                    st.rerun()
-
-    # ── CV007 ─────────────────────────────────────────────
-    with st.expander("➕ Ingreso datos CV007"):
-        with st.form(key="form_CV007"):
-            op          = st.text_input("Operador", key="op_CV007", placeholder="Nombre")
-            tipo_evento = st.selectbox("Tipo de evento", TIPOS_EVENTO, key="tipo_CV007")
-            niv         = st.selectbox("Tipo de fibra", [0, 5],
-                                       format_func=lambda x: "Troncal" if x == 0 else "Sensitiva",
-                                       key="niv_CV007")
-            r = EST_RANGES["CV007"]
-            d = st.number_input("Desde Est.", min_value=r["min"], max_value=r["max"], value=r["min"], key="d07", format="%d")
-            h = st.number_input("Hasta Est.", min_value=r["min"], max_value=r["max"], value=r["max"], key="h07", format="%d")
-
-            factor = FACTORES["CV007"]["troncal"] if niv == 0 else FACTORES["CV007"]["sensitiva"]
-            st.caption(f"📏 {abs(int(h)-int(d))} est × {factor:.2f} = **{abs(int(h)-int(d))*factor:,.1f} m**")
-            nota = st.text_input("Observación", key="nota_CV007", placeholder="Opcional")
-
-            if st.form_submit_button("💾 Guardar CV007"):
-                if not op.strip():
-                    st.error("Ingresa el operador.")
-                elif guardar_registro(op.strip(), d, h, niv, nota, tipo_evento, "CV007", "unico"):
-                    st.success("✅ Guardado — CV007")
-                    st.rerun()
