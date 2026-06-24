@@ -513,7 +513,7 @@ with ftab05:
             st.caption(f"📏 {abs(int(h)-int(d))} est × {factor:.3f} m/est = **{abs(int(h)-int(d))*factor:,.1f} m**")
             nota = st.text_input("Observación", key="nota_CV005", placeholder="Opcional")
 
-            if st.form_submit_button("💾 Guardar registro CV005", use_container_width=True):
+            if st.form_submit_button("💾 Guardar registro CV005"):
                 if not op.strip():
                     st.error("Ingresa el operador.")
                 elif guardar_registro(op.strip(), d, h, niv, nota, tipo_evento, "CV005", fk):
@@ -572,7 +572,7 @@ with ftab06:
             st.caption(f"📏 {abs(int(h)-int(d))} est × {factor:.3f} m/est = **{abs(int(h)-int(d))*factor:,.1f} m**")
             nota = st.text_input("Observación", key="nota_CV006", placeholder="Opcional")
 
-            if st.form_submit_button("💾 Guardar registro CV006", use_container_width=True):
+            if st.form_submit_button("💾 Guardar registro CV006"):
                 if not op.strip():
                     st.error("Ingresa el operador.")
                 elif fk == "tp1" and (int(d) > 1845 or int(h) > 1845):
@@ -634,7 +634,7 @@ with ftab07:
             st.caption(f"📏 {abs(int(h)-int(d))} est × {factor:.3f} m/est = **{abs(int(h)-int(d))*factor:,.1f} m**")
             nota = st.text_input("Observación", key="nota_CV007", placeholder="Opcional")
 
-            if st.form_submit_button("💾 Guardar registro CV007", use_container_width=True):
+            if st.form_submit_button("💾 Guardar registro CV007"):
                 if not op.strip():
                     st.error("Ingresa el operador.")
                 elif guardar_registro(op.strip(), d, h, niv, nota, tipo_evento, "CV007", "unico"):
