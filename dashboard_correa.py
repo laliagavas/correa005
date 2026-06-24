@@ -541,10 +541,6 @@ with ftab05:
 with ftab06:
     col_f, col_info = st.columns([2, 1])
     with col_f:
-        with st.form(key="form_CV006"):
-            fa, fb = st.columns(2)
-            with fa:
-                op = st.text_input("Operador", key="op_CV006", placeholder="Nombre")
             with fb:
                 tipo_evento = st.selectbox("Tipo de evento", TIPOS_EVENTO, key="tipo_CV006")
 
@@ -561,17 +557,16 @@ with ftab06:
                 )
             fk = "tp1" if "TP1" in frente_sel else "tp2"
 
+            # Rango completo de la correa — validación al guardar, no en el widget
             fe, ff = st.columns(2)
-            if fk == "tp1":
-                with fe:
-                    d = st.number_input("Desde Est.", min_value=-3, max_value=1845, value=-3, step=1, key="d06t", format="%d")
-                with ff:
-                    h = st.number_input("Hasta Est.", min_value=-3, max_value=1845, value=1845, step=1, key="h06t", format="%d")
-            else:
-                with fe:
-                    d = st.number_input("Desde Est.", min_value=1846, max_value=3526, value=3526, step=1, key="d06p", format="%d")
-                with ff:
-                    h = st.number_input("Hasta Est.", min_value=1846, max_value=3526, value=1846, step=1, key="h06p", format="%d")
+            with fe:
+                d = st.number_input("Desde Est.", min_value=-3, max_value=3526,
+                                    value=-3 if fk == "tp1" else 3526,
+                                    step=1, key="d06", format="%d")
+            with ff:
+                h = st.number_input("Hasta Est.", min_value=-3, max_value=3526,
+                                    value=1845 if fk == "tp1" else 1846,
+                                    step=1, key="h06", format="%d")
 
             factor = FACTORES["CV006"]["troncal"] if niv == 0 else FACTORES["CV006"]["sensitiva"]
             st.caption(f"📏 {abs(int(h)-int(d))} est × {factor:.3f} m/est = **{abs(int(h)-int(d))*factor:,.1f} m**")
@@ -580,6 +575,10 @@ with ftab06:
             if st.form_submit_button("💾 Guardar registro CV006", use_container_width=True):
                 if not op.strip():
                     st.error("Ingresa el operador.")
+                elif fk == "tp1" and (int(d) > 1845 or int(h) > 1845):
+                    st.error("Frente TP1: las estaciones deben estar entre −3 y 1845.")
+                elif fk == "tp2" and (int(d) < 1846 or int(h) < 1846):
+                    st.error("Frente TP2: las estaciones deben estar entre 1846 y 3526.")
                 elif guardar_registro(op.strip(), d, h, niv, nota, tipo_evento, "CV006", fk):
                     st.success(f"✅ Guardado — CV006 / Frente {fk.upper()}")
                     st.rerun()
