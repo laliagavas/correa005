@@ -13,9 +13,9 @@ st.set_page_config(
     page_icon="🔴",
 )
 
-# ===========================================================
+# ============================================================
 # CONSTANTES
-# ===========================================================
+# ============================================================
 FACTORES = {
     "CV005": {"troncal": 1.547, "sensitiva": 10.83},
     "CV006": {"troncal": 1.665, "sensitiva": 13.66},
@@ -604,46 +604,45 @@ with st.sidebar:
       Calculadora SmartVision
     </div>""", unsafe_allow_html=True)
 
-    with st.expander("🔢 Metros → Estación"):
-        calc_correa = st.selectbox("Correa", ["CV005","CV006","CV007"], key="calc_correa")
-        calc_fibra  = st.selectbox("Tipo de fibra", [0, 5],
-                        format_func=lambda x: "Troncal" if x == 0 else "Sensitiva", key="calc_fibra")
-        calc_frente_opts = {
-            "CV005": ["TP1 (origen Est. 3823)", "EM (origen Est. 1)"],
-            "CV006": ["TP1 (origen Est. -3 / 3B Carga)", "TP2 (origen Est. 3526)"],
-            "CV007": ["Único (origen Est. 3)"],
-        }
-        calc_frente_sel = st.selectbox("Frente / origen", calc_frente_opts[calc_correa], key="calc_frente")
-        calc_metros = st.number_input("Metros SmartVision",
-                        min_value=0.0, value=0.0, step=1.0, key="calc_metros", format="%.1f")
+    calc_correa = st.selectbox("Correa", ["CV005","CV006","CV007"], key="calc_correa")
+    calc_fibra  = st.selectbox("Tipo de fibra", [0, 5],
+                    format_func=lambda x: "Troncal" if x == 0 else "Sensitiva", key="calc_fibra")
+    calc_frente_opts = {
+        "CV005": ["TP1 (origen Est. 3823)", "EM (origen Est. 1)"],
+        "CV006": ["TP1 (origen Est. -3 / 3B Carga)", "TP2 (origen Est. 3526)"],
+        "CV007": ["Único (origen Est. 3)"],
+    }
+    calc_frente_sel = st.selectbox("Frente / origen", calc_frente_opts[calc_correa], key="calc_frente")
+    calc_metros = st.number_input("Metros SmartVision",
+                    min_value=0.0, value=0.0, step=1.0, key="calc_metros", format="%.1f")
 
-        factor_calc = FACTORES[calc_correa]["troncal"] if calc_fibra == 0 else FACTORES[calc_correa]["sensitiva"]
-        origenes = {
-            "CV005": {"TP1 (origen Est. 3823)": (3823, -1), "EM (origen Est. 1)": (1, 1)},
-            "CV006": {"TP1 (origen Est. -3 / 3B Carga)": (-3, 1), "TP2 (origen Est. 3526)": (3526, -1)},
-            "CV007": {"Único (origen Est. 3)": (3, 1)},
-        }
-        origen_est, direccion = origenes[calc_correa][calc_frente_sel]
+    factor_calc = FACTORES[calc_correa]["troncal"] if calc_fibra == 0 else FACTORES[calc_correa]["sensitiva"]
+    origenes = {
+        "CV005": {"TP1 (origen Est. 3823)": (3823, -1), "EM (origen Est. 1)": (1, 1)},
+        "CV006": {"TP1 (origen Est. -3 / 3B Carga)": (-3, 1), "TP2 (origen Est. 3526)": (3526, -1)},
+        "CV007": {"Único (origen Est. 3)": (3, 1)},
+    }
+    origen_est, direccion = origenes[calc_correa][calc_frente_sel]
 
-        if factor_calc > 0 and calc_metros > 0:
-            est_calc = round(origen_est + direccion * (calc_metros / factor_calc))
-            rango = EST_RANGES[calc_correa]
-            est_calc = max(rango["min"], min(rango["max"], est_calc))
-            st.markdown(f"""
-            <div style="background:rgba(55,138,221,0.08);border:0.5px solid rgba(55,138,221,0.25);
-                        border-radius:8px;padding:12px 14px;margin-top:6px">
-              <div style="font-size:10px;color:rgba(255,255,255,0.4);margin-bottom:4px;
-                          text-transform:uppercase;letter-spacing:.6px">Estación equivalente</div>
-              <div style="font-size:24px;font-weight:500;color:#378ADD">Est. {est_calc:,}</div>
-              <div style="font-size:10px;color:rgba(255,255,255,0.35);margin-top:4px">
-                {calc_metros:,.1f} m ÷ {factor_calc:.3f} m/est = {calc_metros/factor_calc:.1f} est<br>
-                Origen Est. {origen_est} {"↑" if direccion == 1 else "↓"} · {calc_correa}
-              </div>
-            </div>""", unsafe_allow_html=True)
-        else:
-            st.markdown("""
-            <div style="background:rgba(255,255,255,0.03);border:0.5px solid rgba(255,255,255,0.07);
-                        border-radius:8px;padding:10px 14px;margin-top:6px;
-                        font-size:11px;color:rgba(255,255,255,0.3);text-align:center">
-              Ingresa los metros para calcular
-            </div>""", unsafe_allow_html=True)
+    if factor_calc > 0 and calc_metros > 0:
+        est_calc = round(origen_est + direccion * (calc_metros / factor_calc))
+        rango = EST_RANGES[calc_correa]
+        est_calc = max(rango["min"], min(rango["max"], est_calc))
+        st.markdown(f"""
+        <div style="background:rgba(55,138,221,0.1);border:0.5px solid rgba(55,138,221,0.3);
+                    border-radius:8px;padding:12px 14px;margin-top:4px">
+          <div style="font-size:10px;color:rgba(255,255,255,0.4);margin-bottom:4px;
+                      text-transform:uppercase;letter-spacing:.6px">Estación equivalente</div>
+          <div style="font-size:26px;font-weight:500;color:#378ADD">Est. {est_calc:,}</div>
+          <div style="font-size:10px;color:rgba(255,255,255,0.35);margin-top:4px">
+            {calc_metros:,.1f} m ÷ {factor_calc:.3f} m/est = {calc_metros/factor_calc:.1f} est<br>
+            Origen Est. {origen_est} {"↑" if direccion == 1 else "↓"} · {calc_correa}
+          </div>
+        </div>""", unsafe_allow_html=True)
+    else:
+        st.markdown("""
+        <div style="background:rgba(255,255,255,0.03);border:0.5px solid rgba(255,255,255,0.06);
+                    border-radius:8px;padding:10px 14px;margin-top:4px;
+                    font-size:11px;color:rgba(255,255,255,0.3);text-align:center">
+          Ingresa los metros para calcular
+        </div>""", unsafe_allow_html=True)
