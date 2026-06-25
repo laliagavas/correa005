@@ -404,7 +404,7 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
-ftab05, ftab06, ftab07 = st.tabs(["➕ CV005", "➕ CV006", "➕ CV007"])
+ftab05, ftab06, ftab07, ftab_pdf = st.tabs(["➕ CV005", "➕ CV006", "➕ CV007", "📄 Reporte PDF"])
 
 # ── CV005 ─────────────────────────────────────────────────────
 with ftab05:
@@ -651,3 +651,254 @@ with st.sidebar:
             <div style="width:{min(pct_val,100):.1f}%;background:{color_bar};height:100%;border-radius:99px"></div>
           </div>
         </div>""", unsafe_allow_html=True)
+
+# ============================================================
+# PESTAÑA REPORTE PDF
+# ============================================================
+with ftab_pdf:
+    from datetime import datetime
+    import pytz
+
+    tz_stgo = pytz.timezone("America/Santiago")
+    ahora   = datetime.now(tz_stgo)
+    fecha_str = ahora.strftime("%d de %B de %Y")
+    hora_str  = ahora.strftime("%H:%M hrs")
+
+    # Historial para el reporte (últimos 20)
+    df_rpt = leer_historial(limit=20)
+    filas_hist = ""
+    if not df_rpt.empty:
+        if "created_at" in df_rpt.columns:
+            df_rpt["created_at_dt"] = pd.to_datetime(df_rpt["created_at"], utc=True).dt.tz_convert("America/Santiago")
+        for _, r in df_rpt.iterrows():
+            d  = r.get("estacion_desde","—")
+            h  = r.get("estacion_hasta","—")
+            if r.get("correa_id") == "CV006":
+                d = MAPEO_NUM_A_LETRA.get(int(d) if str(d).lstrip("-").isdigit() else 0, str(d))
+            tramo = f"{d} → {h}"
+            fecha_r = r["created_at_dt"].strftime("%d-%m-%Y %H:%M") if "created_at_dt" in r else "—"
+            fibra_r = "Troncal" if int(r.get("nivel",5)) == 0 else "Sensitiva"
+            filas_hist += f"""
+            <tr>
+              <td>{r.get('correa_id','—')}</td>
+              <td>{r.get('frente','—')}</td>
+              <td>{r.get('tipo_evento','—')}</td>
+              <td>{fibra_r}</td>
+              <td>{tramo}</td>
+              <td>{r.get('operador','—')}</td>
+              <td>{r.get('nota','')}</td>
+              <td>{fecha_r}</td>
+            </tr>"""
+
+    # Barras de progreso para cada correa
+    def barra_pdf(pct, color):
+        w = min(pct, 100.0)
+        return f"""<div style="background:#e5e7eb;border-radius:99px;height:8px;margin:3px 0 6px">
+          <div style="width:{w:.1f}%;background:{color};height:8px;border-radius:99px"></div></div>"""
+
+    pct_s_07 = 100.0
+
+    html_reporte = f"""<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>Reporte Fibra Óptica — {fecha_str}</title>
+<style>
+  @page {{ margin: 18mm 20mm; }}
+  * {{ box-sizing: border-box; margin: 0; padding: 0; }}
+  body {{ font-family: 'Helvetica Neue', Arial, sans-serif; color: #1a1a2e; background: #fff; font-size: 11px; }}
+  .header {{ display: flex; justify-content: space-between; align-items: flex-start;
+             border-bottom: 2px solid #1a1a2e; padding-bottom: 12px; margin-bottom: 18px; }}
+  .header-left h1 {{ font-size: 16px; font-weight: 700; color: #1a1a2e; margin-bottom: 3px; }}
+  .header-left p  {{ font-size: 10px; color: #6b7280; }}
+  .header-right   {{ text-align: right; font-size: 10px; color: #6b7280; line-height: 1.6; }}
+  .header-right strong {{ color: #1a1a2e; font-size: 12px; }}
+  .kpi-grid {{ display: grid; grid-template-columns: repeat(4,1fr); gap: 10px; margin-bottom: 18px; }}
+  .kpi {{ border: 1px solid #e5e7eb; border-radius: 8px; padding: 10px 12px; }}
+  .kpi-label {{ font-size: 9px; text-transform: uppercase; letter-spacing: .6px; color: #9ca3af; margin-bottom: 4px; }}
+  .kpi-value {{ font-size: 18px; font-weight: 700; color: #1a1a2e; }}
+  .kpi-sub   {{ font-size: 8.5px; color: #9ca3af; margin-top: 2px; }}
+  .section-title {{ font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: .8px;
+                    color: #6b7280; margin: 16px 0 8px; border-bottom: 1px solid #f3f4f6; padding-bottom: 4px; }}
+  .correa-grid {{ display: grid; grid-template-columns: repeat(3,1fr); gap: 10px; margin-bottom: 16px; }}
+  .correa-card {{ border: 1px solid #e5e7eb; border-radius: 8px; padding: 12px; }}
+  .correa-name {{ font-size: 13px; font-weight: 700; color: #1a1a2e; margin-bottom: 8px; }}
+  .badge-wip  {{ display:inline-block; font-size:8px; padding:1px 7px; border-radius:99px;
+                 background:#dbeafe; color:#2563eb; font-weight:600; margin-left:6px; }}
+  .badge-ok   {{ display:inline-block; font-size:8px; padding:1px 7px; border-radius:99px;
+                 background:#dcfce7; color:#16a34a; font-weight:600; margin-left:6px; }}
+  .metric-row {{ display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-bottom: 10px; }}
+  .metric     {{ background: #f9fafb; border-radius: 6px; padding: 7px 9px; }}
+  .metric-lbl {{ font-size: 8px; text-transform: uppercase; color: #9ca3af; margin-bottom: 2px; }}
+  .metric-val {{ font-size: 13px; font-weight: 700; color: #1a1a2e; }}
+  .metric-sub {{ font-size: 8px; color: #9ca3af; }}
+  .bar-label  {{ display: flex; justify-content: space-between; font-size: 9px; color: #6b7280; }}
+  .frente-row {{ display: flex; justify-content: space-between; font-size: 9px;
+                 color: #6b7280; padding: 2px 0; border-top: 1px solid #f3f4f6; margin-top: 4px; }}
+  table       {{ width: 100%; border-collapse: collapse; font-size: 9px; }}
+  th          {{ background: #f3f4f6; text-align: left; padding: 5px 7px; font-weight: 600;
+                 text-transform: uppercase; letter-spacing: .4px; color: #6b7280; border-bottom: 1px solid #e5e7eb; }}
+  td          {{ padding: 5px 7px; border-bottom: 1px solid #f3f4f6; color: #374151; vertical-align: top; }}
+  tr:last-child td {{ border-bottom: none; }}
+  .footer     {{ margin-top: 20px; padding-top: 10px; border-top: 1px solid #e5e7eb;
+                 font-size: 8.5px; color: #9ca3af; display: flex; justify-content: space-between; }}
+  @media print {{
+    body {{ -webkit-print-color-adjust: exact; print-color-adjust: exact; }}
+    .no-print {{ display: none; }}
+  }}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-left">
+    <h1>Sistema de Monitoreo de Polines — Fibra Óptica</h1>
+    <p>Centro de Telemetría Térmica Avanzada &nbsp;·&nbsp; Reporte de avance</p>
+  </div>
+  <div class="header-right">
+    <strong>{fecha_str}</strong><br>
+    {hora_str}<br>
+    Generado automáticamente
+  </div>
+</div>
+
+<div class="kpi-grid">
+  <div class="kpi">
+    <div class="kpi-label">Troncal desplegada</div>
+    <div class="kpi-value">{total_t:,.0f} m</div>
+    <div class="kpi-sub">CV005: {met_05['metros_t']:,.0f} · CV006: {met_06['metros_t']:,.0f} · CV007: {met_07['metros_t']:,.0f}</div>
+  </div>
+  <div class="kpi">
+    <div class="kpi-label">Sensitiva desplegada</div>
+    <div class="kpi-value">{total_s:,.0f} m</div>
+    <div class="kpi-sub">CV005: {met_05['metros_s']:,.0f} · CV006: {met_06['metros_s']:,.0f} · CV007: {met_07['metros_s']:,.0f}</div>
+  </div>
+  <div class="kpi">
+    <div class="kpi-label">Troncal completada</div>
+    <div class="kpi-value">3 / 3</div>
+    <div class="kpi-sub">CV005, CV006 y CV007 al 100%</div>
+  </div>
+  <div class="kpi">
+    <div class="kpi-label">Cobertura sensitiva global</div>
+    <div class="kpi-value">{pct_global:.1f}%</div>
+    <div class="kpi-sub">{total_s:,.0f} m de ~{total_s_pos:,.0f} m</div>
+  </div>
+</div>
+
+<div class="section-title">Estado por correa</div>
+<div class="correa-grid">
+
+  <div class="correa-card">
+    <div class="correa-name">CV005 <span class="badge-wip">En progreso</span></div>
+    <div class="metric-row">
+      <div class="metric"><div class="metric-lbl">Troncal</div>
+        <div class="metric-val">{met_05['metros_t']:,.0f} m</div>
+        <div class="metric-sub">100% completa</div></div>
+      <div class="metric"><div class="metric-lbl">Sensitiva</div>
+        <div class="metric-val">{met_05['metros_s']:,.0f} m</div>
+        <div class="metric-sub">de {met_05['total_s']:,.0f} m</div></div>
+    </div>
+    <div class="bar-label"><span>Troncal</span><span>100.0%</span></div>
+    {barra_pdf(100, '#E24B4A')}
+    <div class="bar-label"><span>Sensitiva</span><span>{met_05['pct_s']:.1f}%</span></div>
+    {barra_pdf(met_05['pct_s'], '#7F77DD')}
+    <div class="frente-row"><span>Frente TP1</span><span>Est. 3823 → 2000</span></div>
+    <div class="frente-row"><span>Frente EM</span><span>Est. 1 → 2000</span></div>
+  </div>
+
+  <div class="correa-card">
+    <div class="correa-name">CV006 <span class="badge-wip">En progreso</span></div>
+    <div class="metric-row">
+      <div class="metric"><div class="metric-lbl">Troncal</div>
+        <div class="metric-val">{met_06['metros_t']:,.0f} m</div>
+        <div class="metric-sub">100% completa</div></div>
+      <div class="metric"><div class="metric-lbl">Sensitiva</div>
+        <div class="metric-val">{met_06['metros_s']:,.0f} m</div>
+        <div class="metric-sub">de {met_06['total_s']:,.0f} m</div></div>
+    </div>
+    <div class="bar-label"><span>Troncal</span><span>100.0%</span></div>
+    {barra_pdf(100, '#E24B4A')}
+    <div class="bar-label"><span>Sensitiva</span><span>{met_06['pct_s']:.1f}%</span></div>
+    {barra_pdf(met_06['pct_s'], '#7F77DD')}
+    <div class="frente-row"><span>Frente TP1</span><span>3B Carga → Est. 1845</span></div>
+    <div class="frente-row"><span>Frente TP2</span><span>Est. 3526 → 1846</span></div>
+  </div>
+
+  <div class="correa-card" style="border-color:#bbf7d0">
+    <div class="correa-name">CV007 <span class="badge-ok">100% completada</span></div>
+    <div class="metric-row">
+      <div class="metric"><div class="metric-lbl">Troncal</div>
+        <div class="metric-val">{met_07['metros_t']:,.0f} m</div>
+        <div class="metric-sub">100% completa</div></div>
+      <div class="metric"><div class="metric-lbl">Sensitiva</div>
+        <div class="metric-val">{met_07['metros_s']:,.0f} m</div>
+        <div class="metric-sub">de {met_07['total_s']:,.0f} m</div></div>
+    </div>
+    <div class="bar-label"><span>Troncal</span><span>100.0%</span></div>
+    {barra_pdf(100, '#E24B4A')}
+    <div class="bar-label"><span>Sensitiva</span><span>100.0%</span></div>
+    {barra_pdf(100, '#16a34a')}
+    <div class="frente-row"><span>Frente único</span><span>Est. 3 → 842</span></div>
+  </div>
+
+</div>
+
+<div class="section-title">Historial de registros de campo (últimos 20 eventos)</div>
+<table>
+  <thead>
+    <tr><th>Correa</th><th>Frente</th><th>Tipo evento</th><th>Fibra</th>
+        <th>Tramo</th><th>Operador</th><th>Observación</th><th>Fecha</th></tr>
+  </thead>
+  <tbody>
+    {filas_hist if filas_hist else '<tr><td colspan="8" style="text-align:center;color:#9ca3af">Sin registros</td></tr>'}
+  </tbody>
+</table>
+
+<div class="footer">
+  <span>Sistema de Monitoreo de Polines — Fibra Óptica &nbsp;·&nbsp; Centro de Telemetría Térmica Avanzada</span>
+  <span>Generado el {fecha_str} a las {hora_str}</span>
+</div>
+
+<script>
+  window.onload = function() {{
+    // Auto-open print dialog after short delay
+  }};
+</script>
+</body>
+</html>"""
+
+    st.markdown("""
+    <div style="background:rgba(255,255,255,0.03);border:0.5px solid rgba(255,255,255,0.07);
+                border-radius:10px;padding:16px 18px;margin-bottom:14px">
+      <div style="font-size:13px;font-weight:500;color:#F0F2F5;margin-bottom:4px">Reporte de avance</div>
+      <div style="font-size:11px;color:rgba(255,255,255,0.4)">
+        Genera un reporte PDF con el estado actual de las tres correas y el historial de registros.
+        Al hacer clic se abre el reporte en una nueva pestaña — usa <strong style="color:rgba(255,255,255,0.7)">
+        Ctrl+P / Cmd+P</strong> o el botón de imprimir del navegador y selecciona <strong
+        style="color:rgba(255,255,255,0.7)">Guardar como PDF</strong>.
+      </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    # Encode HTML to base64 for download link
+    import base64
+    html_bytes   = html_reporte.encode("utf-8")
+    html_b64     = base64.b64encode(html_bytes).decode()
+    nombre_pdf   = f"Reporte_FibraOptica_{ahora.strftime('%Y%m%d_%H%M')}.html"
+
+    st.markdown(f"""
+    <a href="data:text/html;base64,{html_b64}" download="{nombre_pdf}"
+       style="display:inline-flex;align-items:center;gap:8px;
+              background:rgba(55,138,221,0.15);border:0.5px solid rgba(55,138,221,0.4);
+              color:#378ADD;border-radius:8px;padding:10px 20px;font-size:13px;
+              font-weight:500;text-decoration:none;margin-bottom:14px">
+      ⬇️ Descargar reporte HTML → abrir → Ctrl+P → Guardar como PDF
+    </a>
+    """, unsafe_allow_html=True)
+
+    # Preview
+    st.markdown("""
+    <div style="font-size:10px;text-transform:uppercase;letter-spacing:.8px;
+                color:rgba(255,255,255,0.35);margin-bottom:8px">Vista previa del reporte</div>
+    """, unsafe_allow_html=True)
+    st.components.v1.html(html_reporte, height=700, scrolling=True)
