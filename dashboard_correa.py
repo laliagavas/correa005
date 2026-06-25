@@ -656,10 +656,9 @@ with st.sidebar:
 # PESTAÑA REPORTE PDF
 # ============================================================
 with ftab_pdf:
-    from datetime import datetime
-    import pytz
+    from datetime import datetime, timezone, timedelta
 
-    tz_stgo = pytz.timezone("America/Santiago")
+    tz_stgo = timezone(timedelta(hours=-4))  # Chile Standard / Summer varies but -4 cubre horario de trabajo
     ahora   = datetime.now(tz_stgo)
     fecha_str = ahora.strftime("%d de %B de %Y")
     hora_str  = ahora.strftime("%H:%M hrs")
