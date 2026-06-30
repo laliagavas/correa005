@@ -1090,9 +1090,6 @@ with ftab_esquema:
                 border-radius:10px;padding:14px 16px;margin-bottom:16px">
       <div style="font-size:13px;font-weight:500;color:#F0F2F5;margin-bottom:4px">Distribución física de fibra</div>
       <div style="font-size:11px;color:rgba(255,255,255,0.4)">
-        Vista lateral de cada correa transportadora con sus tambores motrices, mostrando el avance
-        real de fibra troncal y sensitiva en carriles separados. CV005 y CV006 son correas dobles
-        que llegan al centro desde ambos extremos.
       </div>
     </div>
     """, unsafe_allow_html=True)
@@ -1119,7 +1116,7 @@ with ftab_esquema:
     frente_b_05 = {
         "label_origen": "EM", "est_origen": "Est. 1",
         "label_centro": "Centro", "est_centro": "Est. 2000",
-        "pct_s": pct_em_05, "color_s": "#1D9E75", "lado_s": "izq",
+        "pct_s": pct_em_05, "color_s": "#1D9E75", "lado_s": "der",
         "detalle": f"Sensitiva EM: Est. {em_d if em_d is not None else 1} → {em_h if em_h is not None else 2000}",
     }
     svg_05 = generar_svg_correa_doble("CV005", met_05, frente_a_05, frente_b_05)
@@ -1141,7 +1138,7 @@ with ftab_esquema:
     frente_b_06 = {
         "label_origen": "TP2", "est_origen": "Est. 3526",
         "label_centro": "Centro", "est_centro": "Est. 1846",
-        "pct_s": pct_tp2_06, "color_s": "#1D9E75", "lado_s": "izq",
+        "pct_s": pct_tp2_06, "color_s": "#1D9E75", "lado_s": "der",
         "detalle": f"Sensitiva TP2: Est. {t2d if t2d is not None else 3526} → {t2h if t2h is not None else 1846}",
     }
     svg_06 = generar_svg_correa_doble("CV006", met_06, frente_a_06, frente_b_06)
