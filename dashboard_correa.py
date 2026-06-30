@@ -744,6 +744,19 @@ with ftab_pdf:
 
     pct_s_07 = 100.0
 
+    badge_corte_05 = (
+        ' <span class="badge-wip" style="background:#fef3c7;color:#d97706">⚠ Corte troncal</span>'
+        if not met_05['troncal_completa'] else ''
+    )
+    badge_corte_06 = (
+        ' <span class="badge-wip" style="background:#fef3c7;color:#d97706">⚠ Corte troncal</span>'
+        if not met_06['troncal_completa'] else ''
+    )
+    sub_troncal_05 = '100% completa' if met_05['troncal_completa'] else 'con corte activo'
+    sub_troncal_06 = '100% completa' if met_06['troncal_completa'] else 'con corte activo'
+    color_t_05 = '#E24B4A' if met_05['pct_t'] >= 100 else '#f59e0b'
+    color_t_06 = '#E24B4A' if met_06['pct_t'] >= 100 else '#f59e0b'
+
     html_reporte = f"""<!DOCTYPE html>
 <html lang="es">
 <head>
@@ -835,17 +848,17 @@ with ftab_pdf:
 <div class="correa-grid">
 
   <div class="correa-card">
-    <div class="correa-name">CV005 <span class="badge-wip">En progreso</span>{' <span class=\"badge-wip\" style=\"background:#fef3c7;color:#d97706\">⚠ Corte troncal</span>' if not met_05['troncal_completa'] else ''}</div>
+    <div class="correa-name">CV005 <span class="badge-wip">En progreso</span>{badge_corte_05}</div>
     <div class="metric-row">
       <div class="metric"><div class="metric-lbl">Troncal</div>
         <div class="metric-val">{met_05['metros_t']:,.0f} m</div>
-        <div class="metric-sub">{'100% completa' if met_05['troncal_completa'] else 'con corte activo'}</div></div>
+        <div class="metric-sub">{sub_troncal_05}</div></div>
       <div class="metric"><div class="metric-lbl">Sensitiva</div>
         <div class="metric-val">{met_05['metros_s']:,.0f} m</div>
         <div class="metric-sub">de {met_05['total_s']:,.0f} m</div></div>
     </div>
     <div class="bar-label"><span>Troncal</span><span>{met_05['pct_t']:.1f}%</span></div>
-    {barra_pdf(met_05['pct_t'], '#E24B4A' if met_05['pct_t']>=100 else '#f59e0b')}
+    {barra_pdf(met_05['pct_t'], color_t_05)}
     <div class="bar-label"><span>Sensitiva</span><span>{met_05['pct_s']:.1f}%</span></div>
     {barra_pdf(met_05['pct_s'], '#7F77DD')}
     <div class="frente-row"><span>Frente TP1</span><span>Est. 3823 → 2000</span></div>
@@ -853,17 +866,17 @@ with ftab_pdf:
   </div>
 
   <div class="correa-card">
-    <div class="correa-name">CV006 <span class="badge-wip">En progreso</span>{' <span class=\"badge-wip\" style=\"background:#fef3c7;color:#d97706\">⚠ Corte troncal</span>' if not met_06['troncal_completa'] else ''}</div>
+    <div class="correa-name">CV006 <span class="badge-wip">En progreso</span>{badge_corte_06}</div>
     <div class="metric-row">
       <div class="metric"><div class="metric-lbl">Troncal</div>
         <div class="metric-val">{met_06['metros_t']:,.0f} m</div>
-        <div class="metric-sub">{'100% completa' if met_06['troncal_completa'] else 'con corte activo'}</div></div>
+        <div class="metric-sub">{sub_troncal_06}</div></div>
       <div class="metric"><div class="metric-lbl">Sensitiva</div>
         <div class="metric-val">{met_06['metros_s']:,.0f} m</div>
         <div class="metric-sub">de {met_06['total_s']:,.0f} m</div></div>
     </div>
     <div class="bar-label"><span>Troncal</span><span>{met_06['pct_t']:.1f}%</span></div>
-    {barra_pdf(met_06['pct_t'], '#E24B4A' if met_06['pct_t']>=100 else '#f59e0b')}
+    {barra_pdf(met_06['pct_t'], color_t_06)}
     <div class="bar-label"><span>Sensitiva</span><span>{met_06['pct_s']:.1f}%</span></div>
     {barra_pdf(met_06['pct_s'], '#7F77DD')}
     <div class="frente-row"><span>Frente TP1</span><span>3B Carga → Est. 1845</span></div>
