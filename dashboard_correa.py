@@ -985,43 +985,42 @@ def generar_svg_correa(correa_id, met, sens_frentes, label_izq, est_izq, label_d
     pct_t = min(met["pct_t"], 100.0)
     color_t = "#E24B4A" if met["pct_t"] >= 100 else "#f59e0b"
 
-    parts = [f'''<svg width="100%" viewBox="0 0 {w} {h}" role="img">
-<title>Esquema correa transportadora {correa_id}</title>
-<desc>Vista lateral de la correa {correa_id} con tramo de carga y retorno, mostrando avance de fibra troncal y sensitiva en carriles separados</desc>
+    parts = [f'''<svg width="100%" viewBox="0 0 {w} {h}" role="img" aria-label="Esquema correa transportadora {correa_id}">
 <defs>
 <marker id="arrow_{correa_id}" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M2 1L8 5L2 9" fill="none" stroke="context-stroke" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></marker>
 </defs>
-<text class="th" x="{cx}" y="24" text-anchor="middle">{correa_id}</text>''']
+<text x="{cx}" y="24" text-anchor="middle" fill="#F0F2F5" font-size="15" font-weight="500">{correa_id}</text>''']
 
-    # Tambores motrices
-    parts.append(f'<circle cx="{x0}" cy="{y_tambor}" r="26" fill="none" stroke="var(--text-secondary)" stroke-width="3"/>')
-    parts.append(f'<circle cx="{x0}" cy="{y_tambor}" r="8" fill="var(--text-secondary)" opacity="0.5"/>')
-    parts.append(f'<circle cx="{x1}" cy="{y_tambor}" r="26" fill="none" stroke="var(--text-secondary)" stroke-width="3"/>')
-    parts.append(f'<circle cx="{x1}" cy="{y_tambor}" r="8" fill="var(--text-secondary)" opacity="0.5"/>')
+    # Tambores motrices (gris claro, bien visibles)
+    parts.append(f'<circle cx="{x0}" cy="{y_tambor}" r="26" fill="none" stroke="#9CA3AF" stroke-width="3"/>')
+    parts.append(f'<circle cx="{x0}" cy="{y_tambor}" r="8" fill="#9CA3AF" opacity="0.6"/>')
+    parts.append(f'<circle cx="{x1}" cy="{y_tambor}" r="26" fill="none" stroke="#9CA3AF" stroke-width="3"/>')
+    parts.append(f'<circle cx="{x1}" cy="{y_tambor}" r="8" fill="#9CA3AF" opacity="0.6"/>')
 
-    # Tramo carga (arriba) y retorno (abajo)
-    parts.append(f'<line x1="{x0}" y1="{y_tambor-26}" x2="{x1}" y2="{y_tambor-26}" stroke="var(--border-strong)" stroke-width="4" stroke-linecap="round"/>')
-    parts.append(f'<line x1="{x0}" y1="{y_tambor+26}" x2="{x1}" y2="{y_tambor+26}" stroke="var(--border)" stroke-width="3" stroke-linecap="round" opacity="0.5"/>')
-    parts.append(f'<path d="M{x0},{y_tambor-26} A26,26 0 0,0 {x0},{y_tambor+26}" fill="none" stroke="var(--border-strong)" stroke-width="4"/>')
-    parts.append(f'<path d="M{x1},{y_tambor-26} A26,26 0 0,1 {x1},{y_tambor+26}" fill="none" stroke="var(--border-strong)" stroke-width="4"/>')
+    # Tramo carga (arriba) y retorno (abajo) — banda en blanco/gris claro
+    parts.append(f'<line x1="{x0}" y1="{y_tambor-26}" x2="{x1}" y2="{y_tambor-26}" stroke="#D1D5DB" stroke-width="4" stroke-linecap="round"/>')
+    parts.append(f'<line x1="{x0}" y1="{y_tambor+26}" x2="{x1}" y2="{y_tambor+26}" stroke="#6B7280" stroke-width="3" stroke-linecap="round" opacity="0.6"/>')
+    parts.append(f'<path d="M{x0},{y_tambor-26} A26,26 0 0,0 {x0},{y_tambor+26}" fill="none" stroke="#D1D5DB" stroke-width="4"/>')
+    parts.append(f'<path d="M{x1},{y_tambor-26} A26,26 0 0,1 {x1},{y_tambor+26}" fill="none" stroke="#D1D5DB" stroke-width="4"/>')
 
-    # Polines guía intermedios
+    # Polines guía intermedios (gris claro)
     n_polines = 7
     for i in range(1, n_polines + 1):
         px = x0 + (largo / (n_polines + 1)) * i
-        parts.append(f'<circle cx="{px:.1f}" cy="{y_tambor}" r="6" fill="var(--text-secondary)" opacity="0.4"/>')
+        parts.append(f'<circle cx="{px:.1f}" cy="{y_tambor}" r="6" fill="#9CA3AF" opacity="0.55"/>')
 
     # ── Carril Troncal (arriba del tramo de carga) ──
     y_troncal = y_tambor - 26 - 18
-    parts.append(f'<text class="ts" x="{x0-40}" y="{y_troncal+4}" text-anchor="end">Troncal</text>')
-    parts.append(f'<line x1="{x0}" y1="{y_troncal+8}" x2="{x1}" y2="{y_troncal+8}" stroke="var(--border)" stroke-width="2" stroke-linecap="round" opacity="0.3"/>')
+    parts.append(f'<text x="{x0-40}" y="{y_troncal+4}" text-anchor="end" fill="#9CA3AF" font-size="11">Troncal</text>')
+    parts.append(f'<line x1="{x0}" y1="{y_troncal+8}" x2="{x1}" y2="{y_troncal+8}" stroke="#4B5563" stroke-width="2" stroke-linecap="round" opacity="0.5"/>')
     ancho_troncal = largo * (pct_t / 100.0)
-    parts.append(f'<rect x="{x0}" y="{y_troncal+4}" width="{ancho_troncal:.1f}" height="8" rx="4" fill="{color_t}" opacity="0.85"/>')
+    parts.append(f'<rect x="{x0}" y="{y_troncal+4}" width="{ancho_troncal:.1f}" height="8" rx="4" fill="{color_t}" opacity="0.9"/>')
+
 
     # ── Carril Sensitiva (debajo del troncal, encima de la correa) ──
     y_sens = y_tambor - 26 - 4
-    parts.append(f'<text class="ts" x="{x0-40}" y="{y_sens+4}" text-anchor="end">Sensitiva</text>')
-    parts.append(f'<line x1="{x0}" y1="{y_sens+8}" x2="{x1}" y2="{y_sens+8}" stroke="var(--border)" stroke-width="2" stroke-linecap="round" opacity="0.3"/>')
+    parts.append(f'<text x="{x0-40}" y="{y_sens+4}" text-anchor="end" fill="#9CA3AF" font-size="11">Sensitiva</text>')
+    parts.append(f'<line x1="{x0}" y1="{y_sens+8}" x2="{x1}" y2="{y_sens+8}" stroke="#4B5563" stroke-width="2" stroke-linecap="round" opacity="0.5"/>')
 
     leyenda_items = []
     for f in sens_frentes:
@@ -1031,40 +1030,40 @@ def generar_svg_correa(correa_id, met, sens_frentes, label_izq, est_izq, label_d
             sx = x0
         else:
             sx = x1 - ancho
-        parts.append(f'<rect x="{sx:.1f}" y="{y_sens+4}" width="{ancho:.1f}" height="8" rx="4" fill="{f["color"]}" opacity="0.9"/>')
+        parts.append(f'<rect x="{sx:.1f}" y="{y_sens+4}" width="{ancho:.1f}" height="8" rx="4" fill="{f["color"]}" opacity="0.95"/>')
         leyenda_items.append(f)
 
     # Centro
-    parts.append(f'<circle cx="{cx}" cy="{y_tambor}" r="4" fill="#0C447C"/>')
-    parts.append(f'<line x1="{cx}" y1="{y_troncal-20}" x2="{cx}" y2="{y_troncal+2}" stroke="var(--border-strong)" stroke-width="0.5" stroke-dasharray="2 2"/>')
-    parts.append(f'<text class="ts" x="{cx}" y="{y_troncal-26}" text-anchor="middle">Centro</text>')
+    parts.append(f'<circle cx="{cx}" cy="{y_tambor}" r="4" fill="#5DA8E8"/>')
+    parts.append(f'<line x1="{cx}" y1="{y_troncal-20}" x2="{cx}" y2="{y_troncal+2}" stroke="#9CA3AF" stroke-width="0.5" stroke-dasharray="2 2"/>')
+    parts.append(f'<text x="{cx}" y="{y_troncal-26}" text-anchor="middle" fill="#9CA3AF" font-size="11">Centro</text>')
 
     # Labels extremos
     y_ext = y_tambor + 70
-    parts.append(f'<text class="th" x="{x0}" y="{y_ext}" text-anchor="middle">{label_izq}</text>')
-    parts.append(f'<text class="ts" x="{x0}" y="{y_ext+16}" text-anchor="middle">{est_izq}</text>')
+    parts.append(f'<text x="{x0}" y="{y_ext}" text-anchor="middle" fill="#F0F2F5" font-size="14" font-weight="500">{label_izq}</text>')
+    parts.append(f'<text x="{x0}" y="{y_ext+16}" text-anchor="middle" fill="#9CA3AF" font-size="11">{est_izq}</text>')
     if doble:
-        parts.append(f'<text class="th" x="{x1}" y="{y_ext}" text-anchor="middle">{label_der}</text>')
-        parts.append(f'<text class="ts" x="{x1}" y="{y_ext+16}" text-anchor="middle">{est_der}</text>')
+        parts.append(f'<text x="{x1}" y="{y_ext}" text-anchor="middle" fill="#F0F2F5" font-size="14" font-weight="500">{label_der}</text>')
+        parts.append(f'<text x="{x1}" y="{y_ext+16}" text-anchor="middle" fill="#9CA3AF" font-size="11">{est_der}</text>')
 
     # Detalle texto
     y_det = y_ext + 42
     sub_t = "100% completa" if met["troncal_completa"] else "⚠ con corte activo"
-    parts.append(f'<text class="ts" x="{cx}" y="{y_det}" text-anchor="middle">Troncal: {met["metros_t"]:,.0f} m · {sub_t} · {met["factor_t"]:.2f} m/est</text>')
+    parts.append(f'<text x="{cx}" y="{y_det}" text-anchor="middle" fill="#9CA3AF" font-size="11">Troncal: {met["metros_t"]:,.0f} m · {sub_t} · {met["factor_t"]:.2f} m/est</text>')
 
     y_det2 = y_det + 16
     detalle_sens = "  ·  ".join([f["detalle"] for f in sens_frentes])
-    parts.append(f'<text class="ts" x="{cx}" y="{y_det2}" text-anchor="middle">{detalle_sens}</text>')
+    parts.append(f'<text x="{cx}" y="{y_det2}" text-anchor="middle" fill="#9CA3AF" font-size="11">{detalle_sens}</text>')
 
     # Leyenda
     y_leg = y_det2 + 30
     x_leg = 170
-    parts.append(f'<g class="c-red"><rect x="{x_leg}" y="{y_leg-10}" width="12" height="12" rx="3" stroke-width="0.5"/></g>')
-    parts.append(f'<text class="ts" x="{x_leg+20}" y="{y_leg}">Troncal</text>')
+    parts.append(f'<rect x="{x_leg}" y="{y_leg-10}" width="12" height="12" rx="3" fill="#E24B4A"/>')
+    parts.append(f'<text x="{x_leg+20}" y="{y_leg}" fill="#9CA3AF" font-size="11">Troncal</text>')
     x_leg += 100
     for f in leyenda_items:
-        parts.append(f'<g><rect x="{x_leg}" y="{y_leg-10}" width="12" height="12" rx="3" fill="{f["color"]}" opacity="0.9"/></g>')
-        parts.append(f'<text class="ts" x="{x_leg+20}" y="{y_leg}">{f["nombre"]}</text>')
+        parts.append(f'<rect x="{x_leg}" y="{y_leg-10}" width="12" height="12" rx="3" fill="{f["color"]}"/>')
+        parts.append(f'<text x="{x_leg+20}" y="{y_leg}" fill="#9CA3AF" font-size="11">{f["nombre"]}</text>')
         x_leg += 130
 
     parts.append('</svg>')
