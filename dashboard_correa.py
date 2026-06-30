@@ -1193,9 +1193,6 @@ with ftab_esquema:
                 border-radius:10px;padding:14px 16px;margin-bottom:16px">
       <div style="font-size:13px;font-weight:500;color:#F0F2F5;margin-bottom:4px">Distribución física de fibra</div>
       <div style="font-size:11px;color:rgba(255,255,255,0.4)">
-        Vista lateral de cada correa transportadora con sus tambores motrices, mostrando el avance
-        real de fibra troncal y sensitiva en carriles separados. CV005 y CV006 son correas dobles
-        que llegan al centro desde ambos extremos.
       </div>
     </div>
     """, unsafe_allow_html=True)
