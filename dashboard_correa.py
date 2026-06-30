@@ -451,7 +451,9 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
-ftab05, ftab06, ftab07, ftab_pdf = st.tabs(["➕ CV005", "➕ CV006", "➕ CV007", "📄 Reporte PDF"])
+ftab05, ftab06, ftab07, ftab_pdf, ftab_esquema = st.tabs(
+    ["➕ CV005", "➕ CV006", "➕ CV007", "📄 Reporte PDF", "🔧 Esquema de correas"]
+)
 
 # ── CV005 ─────────────────────────────────────────────────────
 with ftab05:
@@ -961,3 +963,173 @@ with ftab_pdf:
                 color:rgba(255,255,255,0.35);margin-bottom:8px">Vista previa del reporte</div>
     """, unsafe_allow_html=True)
     st.components.v1.html(html_reporte, height=700, scrolling=True)
+
+# ============================================================
+# PESTAÑA ESQUEMA DE CORREAS (correa transportadora real)
+# ============================================================
+def generar_svg_correa(correa_id, met, sens_frentes, label_izq, est_izq, label_der, est_der, doble=True):
+    """
+    Genera el SVG de la correa transportadora con dos carriles separados:
+    troncal (arriba) y sensitiva (abajo), sin solaparse.
+
+    sens_frentes: lista de dicts {pct, color, lado} para los segmentos de sensitiva
+    label_izq/der, est_izq/der: etiquetas de los extremos (TP1/EM, 3B Carga/TP2, etc.)
+    doble: si la correa tiene dos frentes (CV005/CV006) o uno solo (CV007)
+    """
+    w, h = 680, 300
+    cx = w / 2
+    x0, x1 = 90, 590
+    largo = x1 - x0
+    y_tambor = 140
+
+    pct_t = min(met["pct_t"], 100.0)
+    color_t = "#E24B4A" if met["pct_t"] >= 100 else "#f59e0b"
+
+    parts = [f'''<svg width="100%" viewBox="0 0 {w} {h}" role="img">
+<title>Esquema correa transportadora {correa_id}</title>
+<desc>Vista lateral de la correa {correa_id} con tramo de carga y retorno, mostrando avance de fibra troncal y sensitiva en carriles separados</desc>
+<defs>
+<marker id="arrow_{correa_id}" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M2 1L8 5L2 9" fill="none" stroke="context-stroke" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></marker>
+</defs>
+<text class="th" x="{cx}" y="24" text-anchor="middle">{correa_id}</text>''']
+
+    # Tambores motrices
+    parts.append(f'<circle cx="{x0}" cy="{y_tambor}" r="26" fill="none" stroke="var(--text-secondary)" stroke-width="3"/>')
+    parts.append(f'<circle cx="{x0}" cy="{y_tambor}" r="8" fill="var(--text-secondary)" opacity="0.5"/>')
+    parts.append(f'<circle cx="{x1}" cy="{y_tambor}" r="26" fill="none" stroke="var(--text-secondary)" stroke-width="3"/>')
+    parts.append(f'<circle cx="{x1}" cy="{y_tambor}" r="8" fill="var(--text-secondary)" opacity="0.5"/>')
+
+    # Tramo carga (arriba) y retorno (abajo)
+    parts.append(f'<line x1="{x0}" y1="{y_tambor-26}" x2="{x1}" y2="{y_tambor-26}" stroke="var(--border-strong)" stroke-width="4" stroke-linecap="round"/>')
+    parts.append(f'<line x1="{x0}" y1="{y_tambor+26}" x2="{x1}" y2="{y_tambor+26}" stroke="var(--border)" stroke-width="3" stroke-linecap="round" opacity="0.5"/>')
+    parts.append(f'<path d="M{x0},{y_tambor-26} A26,26 0 0,0 {x0},{y_tambor+26}" fill="none" stroke="var(--border-strong)" stroke-width="4"/>')
+    parts.append(f'<path d="M{x1},{y_tambor-26} A26,26 0 0,1 {x1},{y_tambor+26}" fill="none" stroke="var(--border-strong)" stroke-width="4"/>')
+
+    # Polines guía intermedios
+    n_polines = 7
+    for i in range(1, n_polines + 1):
+        px = x0 + (largo / (n_polines + 1)) * i
+        parts.append(f'<circle cx="{px:.1f}" cy="{y_tambor}" r="6" fill="var(--text-secondary)" opacity="0.4"/>')
+
+    # ── Carril Troncal (arriba del tramo de carga) ──
+    y_troncal = y_tambor - 26 - 18
+    parts.append(f'<text class="ts" x="{x0-40}" y="{y_troncal+4}" text-anchor="end">Troncal</text>')
+    parts.append(f'<line x1="{x0}" y1="{y_troncal+8}" x2="{x1}" y2="{y_troncal+8}" stroke="var(--border)" stroke-width="2" stroke-linecap="round" opacity="0.3"/>')
+    ancho_troncal = largo * (pct_t / 100.0)
+    parts.append(f'<rect x="{x0}" y="{y_troncal+4}" width="{ancho_troncal:.1f}" height="8" rx="4" fill="{color_t}" opacity="0.85"/>')
+
+    # ── Carril Sensitiva (debajo del troncal, encima de la correa) ──
+    y_sens = y_tambor - 26 - 4
+    parts.append(f'<text class="ts" x="{x0-40}" y="{y_sens+4}" text-anchor="end">Sensitiva</text>')
+    parts.append(f'<line x1="{x0}" y1="{y_sens+8}" x2="{x1}" y2="{y_sens+8}" stroke="var(--border)" stroke-width="2" stroke-linecap="round" opacity="0.3"/>')
+
+    leyenda_items = []
+    for f in sens_frentes:
+        pct = min(f["pct"], 100.0)
+        ancho = (largo / (2 if doble else 1)) * (pct / 100.0)
+        if f["lado"] == "izq":
+            sx = x0
+        else:
+            sx = x1 - ancho
+        parts.append(f'<rect x="{sx:.1f}" y="{y_sens+4}" width="{ancho:.1f}" height="8" rx="4" fill="{f["color"]}" opacity="0.9"/>')
+        leyenda_items.append(f)
+
+    # Centro
+    parts.append(f'<circle cx="{cx}" cy="{y_tambor}" r="4" fill="#0C447C"/>')
+    parts.append(f'<line x1="{cx}" y1="{y_troncal-20}" x2="{cx}" y2="{y_troncal+2}" stroke="var(--border-strong)" stroke-width="0.5" stroke-dasharray="2 2"/>')
+    parts.append(f'<text class="ts" x="{cx}" y="{y_troncal-26}" text-anchor="middle">Centro</text>')
+
+    # Labels extremos
+    y_ext = y_tambor + 70
+    parts.append(f'<text class="th" x="{x0}" y="{y_ext}" text-anchor="middle">{label_izq}</text>')
+    parts.append(f'<text class="ts" x="{x0}" y="{y_ext+16}" text-anchor="middle">{est_izq}</text>')
+    if doble:
+        parts.append(f'<text class="th" x="{x1}" y="{y_ext}" text-anchor="middle">{label_der}</text>')
+        parts.append(f'<text class="ts" x="{x1}" y="{y_ext+16}" text-anchor="middle">{est_der}</text>')
+
+    # Detalle texto
+    y_det = y_ext + 42
+    sub_t = "100% completa" if met["troncal_completa"] else "⚠ con corte activo"
+    parts.append(f'<text class="ts" x="{cx}" y="{y_det}" text-anchor="middle">Troncal: {met["metros_t"]:,.0f} m · {sub_t} · {met["factor_t"]:.2f} m/est</text>')
+
+    y_det2 = y_det + 16
+    detalle_sens = "  ·  ".join([f["detalle"] for f in sens_frentes])
+    parts.append(f'<text class="ts" x="{cx}" y="{y_det2}" text-anchor="middle">{detalle_sens}</text>')
+
+    # Leyenda
+    y_leg = y_det2 + 30
+    x_leg = 170
+    parts.append(f'<g class="c-red"><rect x="{x_leg}" y="{y_leg-10}" width="12" height="12" rx="3" stroke-width="0.5"/></g>')
+    parts.append(f'<text class="ts" x="{x_leg+20}" y="{y_leg}">Troncal</text>')
+    x_leg += 100
+    for f in leyenda_items:
+        parts.append(f'<g><rect x="{x_leg}" y="{y_leg-10}" width="12" height="12" rx="3" fill="{f["color"]}" opacity="0.9"/></g>')
+        parts.append(f'<text class="ts" x="{x_leg+20}" y="{y_leg}">{f["nombre"]}</text>')
+        x_leg += 130
+
+    parts.append('</svg>')
+    return "".join(parts)
+
+
+with ftab_esquema:
+    st.markdown("""
+    <div style="background:rgba(255,255,255,0.03);border:0.5px solid rgba(255,255,255,0.07);
+                border-radius:10px;padding:14px 16px;margin-bottom:16px">
+      <div style="font-size:13px;font-weight:500;color:#F0F2F5;margin-bottom:4px">Distribución física de fibra</div>
+      <div style="font-size:11px;color:rgba(255,255,255,0.4)">
+        Vista lateral de cada correa transportadora con sus dos tambores motrices, mostrando el avance
+        real de fibra troncal y sensitiva en carriles separados desde cada frente de trabajo.
+      </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    st.markdown("""
+    <style>
+    .esquema-svg-wrap text.th { fill: var(--text-primary, #F0F2F5); font-size: 14px; font-weight: 500; font-family: inherit; }
+    .esquema-svg-wrap text.ts { fill: rgba(255,255,255,0.45); font-size: 11px; font-family: inherit; }
+    .esquema-card { background:rgba(255,255,255,0.03); border:0.5px solid rgba(255,255,255,0.07);
+                    border-radius:12px; padding:12px 8px; margin-bottom:18px; }
+    </style>
+    """, unsafe_allow_html=True)
+
+    # ── CV005 ──
+    tp1_d, tp1_h = obtener_tramo_activo(df_05, 5, "tp1")
+    em_d,  em_h  = obtener_tramo_activo(df_05, 5, "em")
+    pct_tp1_05 = min(abs((tp1_d if tp1_d is not None else 3823) - (tp1_h or 2000)) / (3823-2000) * 100, 100) if tp1_d else 0
+    pct_em_05  = min(abs((em_d if em_d is not None else 1) - (em_h or 2000)) / (2000-1) * 100, 100) if em_d else 0
+
+    sens_05 = [
+        {"lado":"izq","pct":pct_tp1_05,"color":"#7F77DD","nombre":"Sensitiva TP1",
+         "detalle": f"Sensitiva TP1: Est. {tp1_d if tp1_d is not None else 3823} → {tp1_h if tp1_h is not None else 2000}"},
+        {"lado":"der","pct":pct_em_05,"color":"#1D9E75","nombre":"Sensitiva EM",
+         "detalle": f"Sensitiva EM: Est. {em_d if em_d is not None else 1} → {em_h if em_h is not None else 2000}"},
+    ]
+    svg_05 = generar_svg_correa("CV005", met_05, sens_05, "TP1", "Est. 3823", "EM", "Est. 1", doble=True)
+    st.markdown(f'<div class="esquema-card esquema-svg-wrap">{svg_05}</div>', unsafe_allow_html=True)
+
+    # ── CV006 ──
+    t1d, t1h = obtener_tramo_activo(df_06, 5, "tp1")
+    t2d, t2h = obtener_tramo_activo(df_06, 5, "tp2")
+    pct_tp1_06 = min(abs((t1d if t1d is not None else -3) - (t1h or 1845)) / (1845-(-3)) * 100, 100) if t1d is not None else 0
+    pct_tp2_06 = min(abs((t2d if t2d is not None else 3526) - (t2h or 1846)) / (3526-1846) * 100, 100) if t2d else 0
+    t1d_label = MAPEO_NUM_A_LETRA.get(t1d, str(t1d)) if t1d is not None else "3B Carga"
+
+    sens_06 = [
+        {"lado":"izq","pct":pct_tp1_06,"color":"#7F77DD","nombre":"Sensitiva TP1",
+         "detalle": f"Sensitiva TP1: {t1d_label} → {t1h if t1h is not None else 1845}"},
+        {"lado":"der","pct":pct_tp2_06,"color":"#1D9E75","nombre":"Sensitiva TP2",
+         "detalle": f"Sensitiva TP2: Est. {t2d if t2d is not None else 3526} → {t2h if t2h is not None else 1846}"},
+    ]
+    svg_06 = generar_svg_correa("CV006", met_06, sens_06, "TP1", "3B Carga", "TP2", "Est. 3526", doble=True)
+    st.markdown(f'<div class="esquema-card esquema-svg-wrap">{svg_06}</div>', unsafe_allow_html=True)
+
+    # ── CV007 ──
+    u_d, u_h = obtener_tramo_activo(df_07, 5, "unico")
+    pct_unico_07 = min(abs((u_d if u_d is not None else 3) - (u_h or 842)) / (842-3) * 100, 100) if u_d else 100
+
+    sens_07 = [
+        {"lado":"izq","pct":pct_unico_07,"color":"#1D9E75","nombre":"Sensitiva",
+         "detalle": f"Frente único: Est. {u_d if u_d is not None else 3} → {u_h if u_h is not None else 842}"},
+    ]
+    svg_07 = generar_svg_correa("CV007", met_07, sens_07, "TP2", "Est. 3", "Shuttler", "Est. 842", doble=False)
+    st.markdown(f'<div class="esquema-card esquema-svg-wrap">{svg_07}</div>', unsafe_allow_html=True)
