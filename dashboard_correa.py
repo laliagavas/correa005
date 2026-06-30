@@ -329,8 +329,14 @@ with k2:
         f"CV005: {met_05['metros_s']:,.0f} · CV006: {met_06['metros_s']:,.0f} · CV007: {met_07['metros_s']:,.0f}",
         "#7F77DD"), unsafe_allow_html=True)
 with k3:
-    st.markdown(kpi("Troncal completada", "3 / 3",
-        "CV005, CV006 y CV007 al 100%", "#639922"), unsafe_allow_html=True)
+    correas_ok    = [n for n, m in [("CV005", met_05), ("CV006", met_06), ("CV007", met_07)] if m["troncal_completa"]]
+    correas_corte = [n for n, m in [("CV005", met_05), ("CV006", met_06), ("CV007", met_07)] if not m["troncal_completa"]]
+    n_ok = len(correas_ok)
+    color_kpi3 = "#639922" if n_ok == 3 else "#F59E0B"
+    sub_ok    = ", ".join(correas_ok) + " al 100%" if correas_ok else "Ninguna al 100%"
+    sub_corte = ("  ·  ⚠ Corte en " + ", ".join(correas_corte)) if correas_corte else ""
+    st.markdown(kpi("Troncal completada", f"{n_ok} / 3",
+        sub_ok + sub_corte, color_kpi3), unsafe_allow_html=True)
 with k4:
     st.markdown(kpi("Cobertura sensitiva global", f"{pct_global:.1f}%",
         f"{total_s:,.0f} m de ~{total_s_pos:,.0f} m", "#BA7517"), unsafe_allow_html=True)
@@ -933,8 +939,8 @@ with ftab_pdf:
   </div>
   <div class="kpi">
     <div class="kpi-label">Troncal completada</div>
-    <div class="kpi-value">3 / 3</div>
-    <div class="kpi-sub">CV005, CV006 y CV007 al 100%</div>
+    <div class="kpi-value">{n_ok} / 3</div>
+    <div class="kpi-sub">{sub_ok}{sub_corte}</div>
   </div>
   <div class="kpi">
     <div class="kpi-label">Cobertura sensitiva global</div>
