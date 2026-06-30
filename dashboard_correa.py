@@ -105,26 +105,66 @@ def obtener_tramo_activo(df, nivel, frente):
     return int(row["estacion_desde"]), int(row["estacion_hasta"])
 
 def calcular_metraje(df, correa_id):
+    ft = FACTORES[correa_id]["troncal"]
     fs = FACTORES[correa_id]["sensitiva"]
+
     metros_s = 0.0
+    metros_t = 0.0
+    troncal_completa = True  # asume 100% salvo que se detecte un corte vigente
+
     for frente in FRENTES.get(correa_id, ["unico"]):
+        # Sensitiva: tramo activo más reciente (avance normal)
         d, h = obtener_tramo_activo(df, 5, frente)
         if d is not None:
             metros_s += abs(h - d) * fs
+
+        # Troncal: revisar el registro más reciente de este frente
+        sub_t = df[df["nivel"].astype(int) == 0].copy() if not df.empty else df
+        if not sub_t.empty and "frente" in sub_t.columns:
+            sub_t = sub_t[sub_t["frente"] == frente]
+        if not sub_t.empty:
+            if "created_at" in sub_t.columns:
+                sub_t = sub_t.sort_values("created_at", ascending=False)
+            ultimo = sub_t.iloc[0]
+            tipo_ev = str(ultimo.get("tipo_evento", "")).strip().lower()
+            d_t, h_t = int(ultimo["estacion_desde"]), int(ultimo["estacion_hasta"])
+            tramo_t = abs(h_t - d_t) * ft
+
+            if "corte" in tipo_ev:
+                # Un corte vigente reduce el troncal de ese frente: se descuenta el tramo cortado
+                troncal_completa = False
+                metros_t += max(TRONCAL_TOTAL_MTS[correa_id] / len(FRENTES.get(correa_id, ["unico"])) - tramo_t, 0)
+            else:
+                # Avance / fusión / mantención: troncal de ese frente se considera operativo
+                metros_t += TRONCAL_TOTAL_MTS[correa_id] / len(FRENTES.get(correa_id, ["unico"]))
+        else:
+            # Sin registros de troncal para este frente: se asume 100% (estado inicial de terreno)
+            metros_t += TRONCAL_TOTAL_MTS[correa_id] / len(FRENTES.get(correa_id, ["unico"]))
+
     if not df.empty and "frente" not in df.columns:
         metros_s = sum(
             abs(int(r["estacion_hasta"]) - int(r["estacion_desde"])) * fs
             for _, r in df[df["nivel"].astype(int) == 5].iterrows()
         )
+        metros_t = TRONCAL_TOTAL_MTS[correa_id]
+        troncal_completa = True
+
     total_s = SENSITIVA_TOTAL_MTS[correa_id]
+    total_t = TRONCAL_TOTAL_MTS[correa_id]
+    metros_t = min(metros_t, total_t)
+
     return {
-        "metros_t": TRONCAL_TOTAL_MTS[correa_id],
-        "metros_s": metros_s,
-        "pct_s":    min(metros_s / total_s * 100, 100.0) if total_s > 0 else 0.0,
-        "total_s":  total_s,
-        "factor_t": FACTORES[correa_id]["troncal"],
-        "factor_s": fs,
+        "metros_t":         metros_t,
+        "metros_s":         metros_s,
+        "pct_t":            (metros_t / total_t * 100) if total_t > 0 else 100.0,
+        "pct_s":            min(metros_s / total_s * 100, 100.0) if total_s > 0 else 0.0,
+        "total_s":          total_s,
+        "total_t":          total_t,
+        "factor_t":         ft,
+        "factor_s":         fs,
+        "troncal_completa": troncal_completa,
     }
+
 
 # ============================================================
 # ESTILOS
@@ -249,7 +289,14 @@ st.markdown("""
 def render_card(col, nombre, met, completada, frentes_txt):
     color_s = "#639922" if completada else "#7F77DD"
     pct_s   = 100.0 if completada else met["pct_s"]
+    pct_t   = met["pct_t"]
+    color_t = "#E24B4A" if pct_t >= 100 else "#F59E0B"  # naranja si hay corte/no está al 100%
     border  = "rgba(99,153,34,0.2)" if completada else "rgba(255,255,255,0.08)"
+    badge_troncal = "" if pct_t >= 100 else (
+        '<span style="font-size:9px;padding:1px 7px;border-radius:99px;'
+        'background:rgba(245,158,11,0.15);color:#F59E0B;'
+        'border:0.5px solid rgba(245,158,11,0.3);margin-left:6px">⚠ Corte activo</span>'
+    )
     badge = (
         '<span style="font-size:10px;padding:2px 9px;border-radius:99px;'
         'background:rgba(99,153,34,0.15);color:#8dc63f;'
@@ -262,14 +309,14 @@ def render_card(col, nombre, met, completada, frentes_txt):
     bar_t = f"""
     <div style="margin-bottom:9px">
       <div style="display:flex;justify-content:space-between;margin-bottom:3px">
-        <span style="font-size:11px;color:rgba(255,255,255,0.5)">🔴 Troncal</span>
-        <span style="font-size:11px;font-weight:500;color:#E24B4A">100.0%</span>
+        <span style="font-size:11px;color:rgba(255,255,255,0.5)">🔴 Troncal{badge_troncal}</span>
+        <span style="font-size:11px;font-weight:500;color:{color_t}">{pct_t:.1f}%</span>
       </div>
       <div style="background:rgba(255,255,255,0.07);border-radius:99px;height:6px;overflow:hidden">
-        <div style="width:100%;background:#E24B4A;height:100%;border-radius:99px"></div>
+        <div style="width:{min(pct_t,100):.1f}%;background:{color_t};height:100%;border-radius:99px"></div>
       </div>
       <div style="font-size:10px;color:rgba(255,255,255,0.3);margin-top:3px">
-        {met['metros_t']:,.0f} m · {met['factor_t']:.2f} m/est
+        {met['metros_t']:,.0f} m / ~{met['total_t']:,.0f} m · {met['factor_t']:.2f} m/est
       </div>
     </div>"""
     bar_s = f"""
@@ -788,17 +835,17 @@ with ftab_pdf:
 <div class="correa-grid">
 
   <div class="correa-card">
-    <div class="correa-name">CV005 <span class="badge-wip">En progreso</span></div>
+    <div class="correa-name">CV005 <span class="badge-wip">En progreso</span>{' <span class=\"badge-wip\" style=\"background:#fef3c7;color:#d97706\">⚠ Corte troncal</span>' if not met_05['troncal_completa'] else ''}</div>
     <div class="metric-row">
       <div class="metric"><div class="metric-lbl">Troncal</div>
         <div class="metric-val">{met_05['metros_t']:,.0f} m</div>
-        <div class="metric-sub">100% completa</div></div>
+        <div class="metric-sub">{'100% completa' if met_05['troncal_completa'] else 'con corte activo'}</div></div>
       <div class="metric"><div class="metric-lbl">Sensitiva</div>
         <div class="metric-val">{met_05['metros_s']:,.0f} m</div>
         <div class="metric-sub">de {met_05['total_s']:,.0f} m</div></div>
     </div>
-    <div class="bar-label"><span>Troncal</span><span>100.0%</span></div>
-    {barra_pdf(100, '#E24B4A')}
+    <div class="bar-label"><span>Troncal</span><span>{met_05['pct_t']:.1f}%</span></div>
+    {barra_pdf(met_05['pct_t'], '#E24B4A' if met_05['pct_t']>=100 else '#f59e0b')}
     <div class="bar-label"><span>Sensitiva</span><span>{met_05['pct_s']:.1f}%</span></div>
     {barra_pdf(met_05['pct_s'], '#7F77DD')}
     <div class="frente-row"><span>Frente TP1</span><span>Est. 3823 → 2000</span></div>
@@ -806,17 +853,17 @@ with ftab_pdf:
   </div>
 
   <div class="correa-card">
-    <div class="correa-name">CV006 <span class="badge-wip">En progreso</span></div>
+    <div class="correa-name">CV006 <span class="badge-wip">En progreso</span>{' <span class=\"badge-wip\" style=\"background:#fef3c7;color:#d97706\">⚠ Corte troncal</span>' if not met_06['troncal_completa'] else ''}</div>
     <div class="metric-row">
       <div class="metric"><div class="metric-lbl">Troncal</div>
         <div class="metric-val">{met_06['metros_t']:,.0f} m</div>
-        <div class="metric-sub">100% completa</div></div>
+        <div class="metric-sub">{'100% completa' if met_06['troncal_completa'] else 'con corte activo'}</div></div>
       <div class="metric"><div class="metric-lbl">Sensitiva</div>
         <div class="metric-val">{met_06['metros_s']:,.0f} m</div>
         <div class="metric-sub">de {met_06['total_s']:,.0f} m</div></div>
     </div>
-    <div class="bar-label"><span>Troncal</span><span>100.0%</span></div>
-    {barra_pdf(100, '#E24B4A')}
+    <div class="bar-label"><span>Troncal</span><span>{met_06['pct_t']:.1f}%</span></div>
+    {barra_pdf(met_06['pct_t'], '#E24B4A' if met_06['pct_t']>=100 else '#f59e0b')}
     <div class="bar-label"><span>Sensitiva</span><span>{met_06['pct_s']:.1f}%</span></div>
     {barra_pdf(met_06['pct_s'], '#7F77DD')}
     <div class="frente-row"><span>Frente TP1</span><span>3B Carga → Est. 1845</span></div>
