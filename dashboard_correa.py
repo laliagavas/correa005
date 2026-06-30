@@ -104,6 +104,67 @@ def obtener_tramo_activo(df, nivel, frente):
     row = sub.iloc[0]
     return int(row["estacion_desde"]), int(row["estacion_hasta"])
 
+
+def analizar_estado_frente(df, nivel, frente, correa_id):
+    """
+    Retorna dict con:
+      - desde, hasta: tramo activo actual
+      - metros_actuales: metros del tramo actual
+      - metros_anteriores: metros del tramo anterior (None si no hay)
+      - estado: 'avance' | 'corte' | 'sin_cambio' | 'nuevo'
+      - diff_metros: diferencia en metros (positivo=avance, negativo=corte)
+      - tipo_evento: tipo del evento más reciente
+    """
+    if df.empty:
+        return None
+
+    sub = df[df["nivel"].astype(int) == nivel].copy()
+    if "frente" in sub.columns:
+        sub = sub[sub["frente"] == frente]
+    if sub.empty:
+        return None
+
+    if "created_at" in sub.columns:
+        sub = sub.sort_values("created_at", ascending=False)
+
+    factor = FACTORES[correa_id]["troncal"] if nivel == 0 else FACTORES[correa_id]["sensitiva"]
+
+    actual   = sub.iloc[0]
+    d_act    = int(actual["estacion_desde"])
+    h_act    = int(actual["estacion_hasta"])
+    mts_act  = abs(h_act - d_act) * factor
+    tipo_ev  = str(actual.get("tipo_evento", "")).strip()
+
+    if len(sub) < 2:
+        return {
+            "desde": d_act, "hasta": h_act,
+            "metros_actuales": mts_act, "metros_anteriores": None,
+            "estado": "nuevo", "diff_metros": 0, "tipo_evento": tipo_ev,
+        }
+
+    anterior = sub.iloc[1]
+    d_ant    = int(anterior["estacion_desde"])
+    h_ant    = int(anterior["estacion_hasta"])
+    mts_ant  = abs(h_ant - d_ant) * factor
+    diff     = mts_act - mts_ant
+
+    if abs(diff) < 0.5:
+        estado = "sin_cambio"
+    elif diff > 0:
+        estado = "avance"
+    else:
+        estado = "corte"
+
+    # Si el tipo_evento dice explícitamente "Corte", forzar estado corte
+    if "corte" in tipo_ev.lower():
+        estado = "corte"
+
+    return {
+        "desde": d_act, "hasta": h_act,
+        "metros_actuales": mts_act, "metros_anteriores": mts_ant,
+        "estado": estado, "diff_metros": diff, "tipo_evento": tipo_ev,
+    }
+
 def calcular_metraje(df, correa_id):
     ft = FACTORES[correa_id]["troncal"]
     fs = FACTORES[correa_id]["sensitiva"]
@@ -332,11 +393,24 @@ def render_card(col, nombre, met, completada, frentes_txt):
         {met['metros_s']:,.0f} m / ~{met['total_s']:,.0f} m · {met['factor_s']:.2f} m/est
       </div>
     </div>"""
+    def _badge_frente(estado, diff):
+        if estado == "corte":
+            return (f'<span style="font-size:9px;padding:1px 6px;border-radius:99px;'
+                    f'background:rgba(239,68,68,0.15);color:#F87171;'
+                    f'border:0.5px solid rgba(239,68,68,0.3);margin-left:5px">'
+                    f'✂ Corte {abs(diff):,.0f} m</span>')
+        elif estado == "avance":
+            return (f'<span style="font-size:9px;padding:1px 6px;border-radius:99px;'
+                    f'background:rgba(34,197,94,0.12);color:#4ADE80;'
+                    f'border:0.5px solid rgba(34,197,94,0.25);margin-left:5px">'
+                    f'↑ +{diff:,.0f} m</span>')
+        return ""
+
     frente_rows = "".join([
         f'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">'
         f'<span style="font-size:10px;color:rgba(255,255,255,0.4);display:flex;align-items:center;gap:5px">'
         f'<span style="width:5px;height:5px;border-radius:50%;background:{f["color"]};display:inline-block"></span>'
-        f'{f["label"]}</span>'
+        f'{f["label"]}{_badge_frente(f.get("estado",""), f.get("diff_metros",0))}</span>'
         f'<span style="font-size:10px;color:rgba(255,255,255,0.55)">{f["rango"]}</span></div>'
         for f in frentes_txt
     ])
@@ -370,29 +444,52 @@ def render_card(col, nombre, met, completada, frentes_txt):
 
 c1, c2, c3 = st.columns(3)
 
-tp1_d, tp1_h = obtener_tramo_activo(df_05, 5, "tp1")
-em_d,  em_h  = obtener_tramo_activo(df_05, 5, "em")
+# ── CV005 frentes con estado ──
+est_tp1_05 = analizar_estado_frente(df_05, 5, "tp1", "CV005")
+est_em_05  = analizar_estado_frente(df_05, 5, "em",  "CV005")
 frentes_05 = []
-if tp1_d is not None:
-    frentes_05.append({"label":"Frente TP1","rango":f"Est. {tp1_d} → {tp1_h}","color":"#E24B4A"})
-if em_d is not None:
-    frentes_05.append({"label":"Frente EM","rango":f"Est. {em_d} → {em_h}","color":"#7F77DD"})
+if est_tp1_05:
+    frentes_05.append({"label":"Frente TP1",
+                        "rango":f"Est. {est_tp1_05['desde']} → {est_tp1_05['hasta']}",
+                        "color":"#E24B4A",
+                        "estado": est_tp1_05["estado"],
+                        "diff_metros": est_tp1_05["diff_metros"]})
+if est_em_05:
+    frentes_05.append({"label":"Frente EM",
+                        "rango":f"Est. {est_em_05['desde']} → {est_em_05['hasta']}",
+                        "color":"#7F77DD",
+                        "estado": est_em_05["estado"],
+                        "diff_metros": est_em_05["diff_metros"]})
 if not frentes_05:
-    frentes_05 = [{"label":"Frente TP1","rango":"Est. 3823 → 2000","color":"#E24B4A"},
-                  {"label":"Frente EM","rango":"Est. 1 → 2000","color":"#7F77DD"}]
+    frentes_05 = [{"label":"Frente TP1","rango":"Est. 3823 → 2000","color":"#E24B4A","estado":"nuevo","diff_metros":0},
+                  {"label":"Frente EM", "rango":"Est. 1 → 2000",   "color":"#7F77DD","estado":"nuevo","diff_metros":0}]
 
-t1d, t1h = obtener_tramo_activo(df_06, 5, "tp1")
-t2d, t2h = obtener_tramo_activo(df_06, 5, "tp2")
+# ── CV006 frentes con estado ──
+est_tp1_06 = analizar_estado_frente(df_06, 5, "tp1", "CV006")
+est_tp2_06 = analizar_estado_frente(df_06, 5, "tp2", "CV006")
 frentes_06 = []
-if t1d is not None:
-    frentes_06.append({"label":"Frente TP1","rango":f"{MAPEO_NUM_A_LETRA.get(t1d,str(t1d))} → Est. {t1h}","color":"#E24B4A"})
-if t2d is not None:
-    frentes_06.append({"label":"Frente TP2","rango":f"Est. {t2d} → {t2h}","color":"#7F77DD"})
+if est_tp1_06:
+    ld = MAPEO_NUM_A_LETRA.get(est_tp1_06["desde"], str(est_tp1_06["desde"]))
+    frentes_06.append({"label":"Frente TP1",
+                        "rango":f"{ld} → Est. {est_tp1_06['hasta']}",
+                        "color":"#E24B4A",
+                        "estado": est_tp1_06["estado"],
+                        "diff_metros": est_tp1_06["diff_metros"]})
+if est_tp2_06:
+    frentes_06.append({"label":"Frente TP2",
+                        "rango":f"Est. {est_tp2_06['desde']} → {est_tp2_06['hasta']}",
+                        "color":"#7F77DD",
+                        "estado": est_tp2_06["estado"],
+                        "diff_metros": est_tp2_06["diff_metros"]})
 if not frentes_06:
-    frentes_06 = [{"label":"Frente TP1","rango":"3B Carga → Est. 1845","color":"#E24B4A"},
-                  {"label":"Frente TP2","rango":"Est. 3526 → 1846","color":"#7F77DD"}]
+    frentes_06 = [{"label":"Frente TP1","rango":"3B Carga → Est. 1845","color":"#E24B4A","estado":"nuevo","diff_metros":0},
+                  {"label":"Frente TP2","rango":"Est. 3526 → 1846",    "color":"#7F77DD","estado":"nuevo","diff_metros":0}]
 
-frentes_07 = [{"label":"Frente único","rango":"Est. 3 → 842","color":"#639922"}]
+# ── CV007 ──
+est_uni_07 = analizar_estado_frente(df_07, 5, "unico", "CV007")
+frentes_07 = [{"label":"Frente único","rango":"Est. 3 → 842","color":"#639922",
+               "estado": est_uni_07["estado"] if est_uni_07 else "nuevo",
+               "diff_metros": est_uni_07["diff_metros"] if est_uni_07 else 0}]
 
 render_card(c1, "CV005", met_05, False, frentes_05)
 render_card(c2, "CV006", met_06, False, frentes_06)
@@ -1090,6 +1187,9 @@ with ftab_esquema:
                 border-radius:10px;padding:14px 16px;margin-bottom:16px">
       <div style="font-size:13px;font-weight:500;color:#F0F2F5;margin-bottom:4px">Distribución física de fibra</div>
       <div style="font-size:11px;color:rgba(255,255,255,0.4)">
+        Vista lateral de cada correa transportadora con sus tambores motrices, mostrando el avance
+        real de fibra troncal y sensitiva en carriles separados. CV005 y CV006 son correas dobles
+        que llegan al centro desde ambos extremos.
       </div>
     </div>
     """, unsafe_allow_html=True)
