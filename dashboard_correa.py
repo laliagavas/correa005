@@ -33,6 +33,14 @@ NIVELES             = {0: "Troncal", 5: "Sensitiva"}
 FRENTES             = {"CV005": ["tp1","em"], "CV006": ["tp1","tp2"], "CV007": ["unico"]}
 TIPOS_EVENTO        = ["Avance de fibra","Corte","Fusión / empalme","Mantención","Otro"]
 
+# Metros de cabecera (DTS → primera estación) que se suman fijos al metraje
+# No dependen del avance registrado — son metros físicos siempre presentes
+OFFSET_METROS = {
+    "CV005": {"tp1": 122.0, "em": 0.0},   # 122 m desde DTS hasta Est. 3823
+    "CV006": {"tp1": 0.0,   "tp2": 0.0},
+    "CV007": {"unico": 0.0},
+}
+
 # ============================================================
 # SUPABASE
 # ============================================================
@@ -128,11 +136,12 @@ def analizar_estado_frente(df, nivel, frente, correa_id):
         sub = sub.sort_values("created_at", ascending=False)
 
     factor = FACTORES[correa_id]["troncal"] if nivel == 0 else FACTORES[correa_id]["sensitiva"]
+    offset = OFFSET_METROS.get(correa_id, {}).get(frente, 0.0)
 
     actual   = sub.iloc[0]
     d_act    = int(actual["estacion_desde"])
     h_act    = int(actual["estacion_hasta"])
-    mts_act  = abs(h_act - d_act) * factor
+    mts_act  = abs(h_act - d_act) * factor + offset
     tipo_ev  = str(actual.get("tipo_evento", "")).strip()
 
     if len(sub) < 2:
@@ -145,7 +154,7 @@ def analizar_estado_frente(df, nivel, frente, correa_id):
     anterior = sub.iloc[1]
     d_ant    = int(anterior["estacion_desde"])
     h_ant    = int(anterior["estacion_hasta"])
-    mts_ant  = abs(h_ant - d_ant) * factor
+    mts_ant  = abs(h_ant - d_ant) * factor + offset
     diff     = mts_act - mts_ant
 
     if abs(diff) < 0.5:
@@ -171,36 +180,40 @@ def calcular_metraje(df, correa_id):
 
     metros_s = 0.0
     metros_t = 0.0
-    troncal_completa = True  # asume 100% salvo que se detecte un corte vigente
+    frentes_con_corte = []
 
     for frente in FRENTES.get(correa_id, ["unico"]):
-        # Sensitiva: tramo activo más reciente (avance normal)
+        offset = OFFSET_METROS.get(correa_id, {}).get(frente, 0.0)
+
+        # Sensitiva: (estaciones recorridas × factor) + offset de cabecera DTS
+        # El offset desplaza el origen: est. 3823 ya parte desde 122 m, no desde 0
         d, h = obtener_tramo_activo(df, 5, frente)
         if d is not None:
-            metros_s += abs(h - d) * fs
+            metros_s += abs(h - d) * fs + offset
+        elif offset > 0:
+            metros_s += offset
 
-        # Troncal: revisar el registro más reciente de este frente
+        # Troncal
         sub_t = df[df["nivel"].astype(int) == 0].copy() if not df.empty else df
         if not sub_t.empty and "frente" in sub_t.columns:
             sub_t = sub_t[sub_t["frente"] == frente]
         if not sub_t.empty:
             if "created_at" in sub_t.columns:
                 sub_t = sub_t.sort_values("created_at", ascending=False)
-            ultimo = sub_t.iloc[0]
-            tipo_ev = str(ultimo.get("tipo_evento", "")).strip().lower()
+            ultimo   = sub_t.iloc[0]
+            tipo_ev  = str(ultimo.get("tipo_evento", "")).strip().lower()
             d_t, h_t = int(ultimo["estacion_desde"]), int(ultimo["estacion_hasta"])
-            tramo_t = abs(h_t - d_t) * ft
+            tramo_t  = abs(h_t - d_t) * ft
 
             if "corte" in tipo_ev:
-                # Un corte vigente reduce el troncal de ese frente: se descuenta el tramo cortado
-                troncal_completa = False
-                metros_t += max(TRONCAL_TOTAL_MTS[correa_id] / len(FRENTES.get(correa_id, ["unico"])) - tramo_t, 0)
+                frentes_con_corte.append(frente)
+                metros_t += max(TRONCAL_TOTAL_MTS[correa_id] / len(FRENTES.get(correa_id, ["unico"])) - tramo_t, 0) + offset
             else:
-                # Avance / fusión / mantención: troncal de ese frente se considera operativo
-                metros_t += TRONCAL_TOTAL_MTS[correa_id] / len(FRENTES.get(correa_id, ["unico"]))
+                metros_t += TRONCAL_TOTAL_MTS[correa_id] / len(FRENTES.get(correa_id, ["unico"])) + offset
         else:
-            # Sin registros de troncal para este frente: se asume 100% (estado inicial de terreno)
-            metros_t += TRONCAL_TOTAL_MTS[correa_id] / len(FRENTES.get(correa_id, ["unico"]))
+            metros_t += TRONCAL_TOTAL_MTS[correa_id] / len(FRENTES.get(correa_id, ["unico"])) + offset
+
+    troncal_completa = len(frentes_con_corte) == 0
 
     if not df.empty and "frente" not in df.columns:
         metros_s = sum(
@@ -622,16 +635,28 @@ with ftab05:
         c05_metros  = st.number_input("Metros SmartVision", min_value=0.0, value=0.0, step=1.0, key="c05_metros", format="%.1f")
         c05_factor  = FACTORES["CV005"]["troncal"] if c05_fibra==0 else FACTORES["CV005"]["sensitiva"]
         c05_orig    = {"TP1 (origen Est. 3823)":(3823,-1),"EM (origen Est. 1)":(1,1)}[c05_frente]
-        if c05_metros > 0:
+        c05_offset  = OFFSET_METROS["CV005"]["tp1"] if "TP1" in c05_frente else 0.0
+
+        # Para TP1: SmartVision parte en 122 m → descontamos el offset antes de convertir a estaciones
+        c05_metros_netos = max(c05_metros - c05_offset, 0.0)
+
+        if c05_metros >= c05_offset or c05_metros == 0:
             c05_est = max(EST_RANGES["CV005"]["min"], min(EST_RANGES["CV005"]["max"],
-                          round(c05_orig[0] + c05_orig[1] * (c05_metros / c05_factor))))
+                          round(c05_orig[0] + c05_orig[1] * (c05_metros_netos / c05_factor)))) if c05_metros > 0 else c05_orig[0]
+            c05_offset_txt = f"  ·  incluye {c05_offset:.0f} m de cabecera DTS" if c05_offset > 0 else ""
             st.markdown(f"""<div style="background:rgba(55,138,221,0.1);border:0.5px solid rgba(55,138,221,0.3);
                         border-radius:8px;padding:10px 12px;margin-top:4px">
               <div style="font-size:10px;color:rgba(255,255,255,0.4);margin-bottom:3px">Estación equivalente</div>
               <div style="font-size:22px;font-weight:500;color:#378ADD">Est. {c05_est:,}</div>
               <div style="font-size:10px;color:rgba(255,255,255,0.35);margin-top:3px">
-                {c05_metros:,.1f} m ÷ {c05_factor:.3f} = {c05_metros/c05_factor:.1f} est
+                ({c05_metros:,.1f} − {c05_offset:.0f}) m ÷ {c05_factor:.3f} = {c05_metros_netos/c05_factor:.1f} est{c05_offset_txt}
               </div></div>""", unsafe_allow_html=True)
+        else:
+            st.markdown(f"""<div style="background:rgba(245,158,11,0.08);border:0.5px solid rgba(245,158,11,0.3);
+                        border-radius:8px;padding:10px 12px;margin-top:4px;
+                        font-size:11px;color:#F59E0B">
+              ⚠ Los primeros {c05_offset:.0f} m corresponden a la cabecera DTS (antes de Est. 3823)
+            </div>""", unsafe_allow_html=True)
 
 # ── CV006 ─────────────────────────────────────────────────────
 with ftab06:
@@ -1193,6 +1218,9 @@ with ftab_esquema:
                 border-radius:10px;padding:14px 16px;margin-bottom:16px">
       <div style="font-size:13px;font-weight:500;color:#F0F2F5;margin-bottom:4px">Distribución física de fibra</div>
       <div style="font-size:11px;color:rgba(255,255,255,0.4)">
+        Vista lateral de cada correa transportadora con sus tambores motrices, mostrando el avance
+        real de fibra troncal y sensitiva en carriles separados. CV005 y CV006 son correas dobles
+        que llegan al centro desde ambos extremos.
       </div>
     </div>
     """, unsafe_allow_html=True)
