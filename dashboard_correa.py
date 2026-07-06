@@ -206,11 +206,12 @@ def calcular_metraje(df, correa_id):
 
             if "corte" in tipo_ev:
                 frentes_con_corte.append(frente)
-                metros_t += max(TRONCAL_TOTAL_MTS[correa_id] / len(FRENTES.get(correa_id, ["unico"])) - tramo_t - offset, 0)
+                metros_t += max(TRONCAL_TOTAL_MTS[correa_id] / len(FRENTES.get(correa_id, ["unico"])) - tramo_t, 0)
             else:
-                metros_t += max(TRONCAL_TOTAL_MTS[correa_id] / len(FRENTES.get(correa_id, ["unico"])) - offset, 0)
+                # Troncal no se ve afectada por el offset de cabecera DTS (es lineal)
+                metros_t += TRONCAL_TOTAL_MTS[correa_id] / len(FRENTES.get(correa_id, ["unico"]))
         else:
-            metros_t += max(TRONCAL_TOTAL_MTS[correa_id] / len(FRENTES.get(correa_id, ["unico"])) - offset, 0)
+            metros_t += TRONCAL_TOTAL_MTS[correa_id] / len(FRENTES.get(correa_id, ["unico"]))
 
     troncal_completa = len(frentes_con_corte) == 0
 
