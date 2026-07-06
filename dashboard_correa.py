@@ -141,7 +141,7 @@ def analizar_estado_frente(df, nivel, frente, correa_id):
     actual   = sub.iloc[0]
     d_act    = int(actual["estacion_desde"])
     h_act    = int(actual["estacion_hasta"])
-    mts_act  = max(abs(h_act - d_act) * factor - offset, 0.0)
+    mts_act  = abs(h_act - d_act) * factor + offset
     tipo_ev  = str(actual.get("tipo_evento", "")).strip()
 
     if len(sub) < 2:
@@ -154,7 +154,7 @@ def analizar_estado_frente(df, nivel, frente, correa_id):
     anterior = sub.iloc[1]
     d_ant    = int(anterior["estacion_desde"])
     h_ant    = int(anterior["estacion_hasta"])
-    mts_ant  = max(abs(h_ant - d_ant) * factor - offset, 0.0)
+    mts_ant  = abs(h_ant - d_ant) * factor + offset
     diff     = mts_act - mts_ant
 
     if abs(diff) < 0.5:
@@ -185,12 +185,12 @@ def calcular_metraje(df, correa_id):
     for frente in FRENTES.get(correa_id, ["unico"]):
         offset = OFFSET_METROS.get(correa_id, {}).get(frente, 0.0)
 
-        # Sensitiva: los metros registrados parten desde la estación real.
-        # El offset (122 m) es la cabecera DTS antes de Est. 3823, que SmartVision
-        # ya incluye en su lectura total. Aquí lo descontamos para no duplicarlo.
+        # Sensitiva: metros de estaciones recorridas + offset de cabecera DTS.
+        # Los 122 m son fibra real desplegada (cuentan en el total),
+        # solo afectan la conversión metro→estación en la calculadora.
         d, h = obtener_tramo_activo(df, 5, frente)
         if d is not None:
-            metros_s += max(abs(h - d) * fs - offset, 0.0)
+            metros_s += abs(h - d) * fs + offset
 
         # Troncal
         sub_t = df[df["nivel"].astype(int) == 0].copy() if not df.empty else df
