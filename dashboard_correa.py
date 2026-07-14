@@ -512,7 +512,8 @@ frentes_07 = [{"label":"Frente único","rango":"Est. 3 → 842","color":"#639922
 
 render_card(c1, "CV005", met_05, False, frentes_05)
 render_card(c2, "CV006", met_06, False, frentes_06)
-render_card(c3, "CV007", met_07, True,  frentes_07)
+cv007_completada = met_07["troncal_completa"] and met_07["pct_s"] >= 99.9
+render_card(c3, "CV007", met_07, cv007_completada, frentes_07)
 
 # ============================================================
 # HISTORIAL
