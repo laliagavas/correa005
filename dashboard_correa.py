@@ -573,17 +573,163 @@ frentes_07 = [{"label":"Frente único","rango":"Est. 3 → 842","color":"#639922
                "estado": est_uni_07["estado"] if est_uni_07 else "nuevo",
                "diff_metros": est_uni_07["diff_metros"] if est_uni_07 else 0}]
 
-# Barras de avance físico para CV005
-af_html = """<div style="background:rgba(255,255,255,0.02);border:0.5px solid rgba(255,255,255,0.06);
-             border-radius:10px;padding:12px 14px;margin-top:8px">
+# ── Gráfico SVG avance físico CV005 ─────────────────────────────────────
+def generar_svg_avance_fisico(df_af, df_05_sens):
+    """
+    Genera el SVG de avance físico CV005 con los tramos reales desde Supabase.
+    Niveles (abajo→arriba): Troncal, Sensitiva, FO Pos, FO Ret, Clips, Tejida
+    Eje X: 3823 (izq=TP1) → 1 (der=EM)
+    """
+    W, H   = 700, 230
+    X0, X1 = 55, 660   # márgenes eje
+    LARGO  = X1 - X0
+    EST_MIN, EST_MAX = 1, 3823
+    RANGO  = EST_MAX - EST_MIN
+
+    def ex(est):
+        """Convierte estación a coordenada X (3823=izq, 1=der)."""
+        return X0 + (EST_MAX - max(EST_MIN, min(EST_MAX, int(est)))) / RANGO * LARGO
+
+    # Niveles Y para cada ítem
+    NIVELES_Y = {
+        "troncal":      195,
+        "sensitiva":    170,
+        "fo_posicionada": 145,
+        "fo_retirada":  120,
+        "clips":         95,
+        "tejido":        70,
+    }
+    COLORES = {
+        "troncal":        "#E24B4A",
+        "sensitiva":      "#7F77DD",
+        "fo_posicionada": "#06B6D4",
+        "fo_retirada":    "#F97316",
+        "clips":          "#A78BFA",
+        "tejido":         "#34D399",
+    }
+    LABELS = {
+        "troncal":        "Troncal",
+        "sensitiva":      "Sensitiva",
+        "fo_posicionada": "FO Posicionada",
+        "fo_retirada":    "FO Antigua Ret.",
+        "clips":          "Clips Nuevos",
+        "tejido":         "FO Tejida",
+    }
+
+    parts = [f'<svg width="100%" viewBox="0 0 {W} {H}" role="img" '
+             f'aria-label="Avance físico CV005">']
+
+    # Título
+    parts.append(f'<text x="{W/2}" y="18" text-anchor="middle" '
+                 f'fill="#F0F2F5" font-size="12" font-weight="500">'
+                 f'Avance físico instalación — CV005</text>')
+
+    # Eje X
+    parts.append(f'<line x1="{X0}" y1="210" x2="{X1}" y2="210" '
+                 f'stroke="#4B5563" stroke-width="1"/>')
+
+    ticks = [3823, 3201, 2601, 2001, 1601, 1201, 801, 401, 1]
+    for t in ticks:
+        x = ex(t)
+        parts.append(f'<line x1="{x:.1f}" y1="208" x2="{x:.1f}" y2="213" stroke="#6B7280"/>')
+        parts.append(f'<text x="{x:.1f}" y="223" text-anchor="middle" '
+                     f'fill="#6B7280" font-size="8">{t}</text>')
+
+    # Labels TP1 / EM
+    parts.append(f'<text x="{X0}" y="232" text-anchor="middle" '
+                 f'fill="#9CA3AF" font-size="8" font-weight="500">TP1</text>')
+    parts.append(f'<text x="{X1}" y="232" text-anchor="middle" '
+                 f'fill="#9CA3AF" font-size="8" font-weight="500">EM</text>')
+
+    # ── Dibujar tramos por ítem ──────────────────────────────────────────
+
+    # Troncal: línea completa siempre (100%)
+    y = NIVELES_Y["troncal"]
+    c = COLORES["troncal"]
+    parts.append(f'<line x1="{X0}" y1="{y}" x2="{X1}" y2="{y}" '
+                 f'stroke="{c}" stroke-width="4" stroke-linecap="round"/>')
+    parts.append(f'<text x="{X0-4}" y="{y+3}" text-anchor="end" '
+                 f'fill="{c}" font-size="8">{LABELS["troncal"]}</text>')
+    parts.append(f'<text x="{X1+4}" y="{y+3}" text-anchor="start" '
+                 f'fill="{c}" font-size="8">100%</text>')
+
+    # Sensitiva: tramos desde eventos_correa (df_05_sens)
+    y  = NIVELES_Y["sensitiva"]
+    c  = COLORES["sensitiva"]
+    pct_s_total = 0.0
+    if not df_05_sens.empty:
+        sub_s = df_05_sens[df_05_sens["nivel"].astype(int) == 5]
+        if not sub_s.empty:
+            total_est_s = 0
+            for _, row in sub_s.iterrows():
+                d, h = int(row["estacion_desde"]), int(row["estacion_hasta"])
+                x0s, x1s = sorted([ex(d), ex(h)])
+                parts.append(
+                    f'<line x1="{x0s:.1f}" y1="{y}" x2="{x1s:.1f}" y2="{y}" '
+                    f'stroke="{c}" stroke-width="4" stroke-linecap="round" opacity="0.9"/>'
+                )
+                total_est_s += abs(h - d)
+            pct_s_total = min(total_est_s / TOTAL_EST_CV005 * 100, 100.0)
+    parts.append(f'<text x="{X0-4}" y="{y+3}" text-anchor="end" '
+                 f'fill="{c}" font-size="8">{LABELS["sensitiva"]}</text>')
+    parts.append(f'<text x="{X1+4}" y="{y+3}" text-anchor="start" '
+                 f'fill="{c}" font-size="8">{pct_s_total:.1f}%</text>')
+
+    # Ítems de avance físico desde df_af
+    for item_key in ["fo_posicionada", "fo_retirada", "clips", "tejido"]:
+        y  = NIVELES_Y[item_key]
+        c  = COLORES[item_key]
+        iv = ITEMS_AVANCE_FISICO[item_key]
+        total_est = 0
+        if not df_af.empty:
+            sub = df_af[df_af["item"] == item_key]
+            for _, row in sub.iterrows():
+                d, h = int(row["est_desde"]), int(row["est_hasta"])
+                x0s, x1s = sorted([ex(d), ex(h)])
+                if x1s - x0s < 1.5:   # segmento muy pequeño → punto
+                    parts.append(
+                        f'<circle cx="{(x0s+x1s)/2:.1f}" cy="{y}" r="2.5" fill="{c}"/>'
+                    )
+                else:
+                    parts.append(
+                        f'<line x1="{x0s:.1f}" y1="{y}" x2="{x1s:.1f}" y2="{y}" '
+                        f'stroke="{c}" stroke-width="4" stroke-linecap="round" opacity="0.9"/>'
+                    )
+                total_est += abs(h - d)
+        pct = min(total_est / TOTAL_EST_CV005 * 100, 100.0)
+        parts.append(f'<text x="{X0-4}" y="{y+3}" text-anchor="end" '
+                     f'fill="{c}" font-size="8">{LABELS[item_key]}</text>')
+        parts.append(f'<text x="{X1+4}" y="{y+3}" text-anchor="start" '
+                     f'fill="{c}" font-size="8">{pct:.1f}%</text>')
+
+    parts.append('</svg>')
+    return "".join(parts)
+
+
+# Obtener tramos de sensitiva CV005 para el gráfico (todos los registros, no solo el más reciente)
+def leer_todos_tramos_sensitiva_cv005(df):
+    """Retorna todos los registros de sensitiva de CV005 (nivel=5) para dibujar tramos."""
+    if df.empty:
+        return pd.DataFrame()
+    return df[df["nivel"].astype(int) == 5].copy()
+
+
+df_05_sens_tramos = leer_todos_tramos_sensitiva_cv005(df_05)
+svg_af = generar_svg_avance_fisico(df_af, df_05_sens_tramos)
+
+# Barras de resumen + gráfico SVG
+af_html = f"""
+<div style="background:rgba(255,255,255,0.02);border:0.5px solid rgba(255,255,255,0.06);
+            border-radius:10px;padding:12px 14px;margin-top:8px">
   <div style="font-size:9px;text-transform:uppercase;letter-spacing:.8px;
-              color:rgba(255,255,255,0.3);margin-bottom:10px">Avance físico instalación</div>"""
+              color:rgba(255,255,255,0.3);margin-bottom:10px">Avance físico instalación</div>
+"""
 for ik, iv in ITEMS_AVANCE_FISICO.items():
     datos = av_fis.get(ik, {"est": 0, "pct": 0.0})
     pct   = datos["pct"]
     est   = datos.get("est", 0)
     af_html += f"""
-  <div style="margin-bottom:8px">
+  <div style="margin-bottom:7px">
     <div style="display:flex;justify-content:space-between;margin-bottom:2px">
       <span style="font-size:10px;color:rgba(255,255,255,0.5)">{iv['label']}</span>
       <span style="font-size:10px;font-weight:500;color:{iv['color']}">{pct:.1f}%</span>
@@ -591,9 +737,14 @@ for ik, iv in ITEMS_AVANCE_FISICO.items():
     <div style="background:rgba(255,255,255,0.07);border-radius:99px;height:5px;overflow:hidden">
       <div style="width:{min(pct,100):.1f}%;background:{iv['color']};height:100%;border-radius:99px"></div>
     </div>
-    <div style="font-size:9px;color:rgba(255,255,255,0.3);margin-top:2px">{est:,} est de {TOTAL_EST_CV005:,}</div>
+    <div style="font-size:9px;color:rgba(255,255,255,0.3);margin-top:1px">{est:,} est de {TOTAL_EST_CV005:,}</div>
   </div>"""
-af_html += "</div>"
+
+af_html += f"""
+  <div style="border-top:0.5px solid rgba(255,255,255,0.06);padding-top:10px;margin-top:6px">
+    {svg_af}
+  </div>
+</div>"""
 
 render_card(c1, "CV005", met_05, False, frentes_05, av_fis_extra=af_html)
 render_card(c2, "CV006", met_06, False, frentes_06)
