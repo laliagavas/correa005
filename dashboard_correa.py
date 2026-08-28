@@ -107,8 +107,8 @@ def guardar_avance_fisico(operador, item, tipo_evento, est_desde, est_hasta, not
 
 def calcular_avance_fisico(df_af: "pd.DataFrame") -> dict:
     """
-    Por cada ítem, toma el registro más reciente y calcula
-    estaciones completadas y porcentaje sobre TOTAL_EST_CV005.
+    Por cada ítem suma TODOS los tramos registrados para obtener
+    el total acumulado de estaciones y el porcentaje sobre TOTAL_EST_CV005.
     """
     result = {}
     for item_key in ITEMS_AVANCE_FISICO:
@@ -119,15 +119,12 @@ def calcular_avance_fisico(df_af: "pd.DataFrame") -> dict:
         if sub.empty:
             result[item_key] = {"est": 0, "pct": 0.0}
             continue
-        if "created_at" in sub.columns:
-            sub = sub.sort_values("created_at", ascending=False)
-        row = sub.iloc[0]
-        est = abs(int(row["est_hasta"]) - int(row["est_desde"]))
-        pct = min(est / TOTAL_EST_CV005 * 100, 100.0)
-        result[item_key] = {"est": est, "pct": pct,
-                             "desde": int(row["est_desde"]),
-                             "hasta": int(row["est_hasta"]),
-                             "operador": row.get("operador","—")}
+        # Sumar todos los tramos acumulados
+        total_est = int(sub.apply(
+            lambda r: abs(int(r["est_hasta"]) - int(r["est_desde"])), axis=1
+        ).sum())
+        pct = min(total_est / TOTAL_EST_CV005 * 100, 100.0)
+        result[item_key] = {"est": total_est, "pct": pct}
     return result
 
 
