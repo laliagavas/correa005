@@ -715,15 +715,12 @@ def leer_todos_tramos_sensitiva_cv005(df):
 
 
 df_05_sens_tramos = leer_todos_tramos_sensitiva_cv005(df_05)
-svg_af = generar_svg_avance_fisico(df_af, df_05_sens_tramos)
 
-# Barras de resumen + gráfico SVG
-af_html = f"""
-<div style="background:rgba(255,255,255,0.02);border:0.5px solid rgba(255,255,255,0.06);
+# Solo barras de resumen en la card principal (gráfico va en pestaña detalle)
+af_html = """<div style="background:rgba(255,255,255,0.02);border:0.5px solid rgba(255,255,255,0.06);
             border-radius:10px;padding:12px 14px;margin-top:8px">
   <div style="font-size:9px;text-transform:uppercase;letter-spacing:.8px;
-              color:rgba(255,255,255,0.3);margin-bottom:10px">Avance físico instalación</div>
-"""
+              color:rgba(255,255,255,0.3);margin-bottom:10px">Avance físico instalación</div>"""
 for ik, iv in ITEMS_AVANCE_FISICO.items():
     datos = av_fis.get(ik, {"est": 0, "pct": 0.0})
     pct   = datos["pct"]
@@ -739,12 +736,7 @@ for ik, iv in ITEMS_AVANCE_FISICO.items():
     </div>
     <div style="font-size:9px;color:rgba(255,255,255,0.3);margin-top:1px">{est:,} est de {TOTAL_EST_CV005:,}</div>
   </div>"""
-
-af_html += f"""
-  <div style="border-top:0.5px solid rgba(255,255,255,0.06);padding-top:10px;margin-top:6px">
-    {svg_af}
-  </div>
-</div>"""
+af_html += "</div>"
 
 render_card(c1, "CV005", met_05, False, frentes_05, av_fis_extra=af_html)
 render_card(c2, "CV006", met_06, False, frentes_06)
@@ -804,8 +796,8 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
-ftab05, ftab06, ftab07, ftab_pdf, ftab_esquema = st.tabs(
-    ["➕ CV005", "➕ CV006", "➕ CV007", "📄 Reporte PDF", "🔧 Esquema de correas"]
+ftab05, ftab06, ftab07, ftab_pdf, ftab_esquema, ftab_cv005_detalle = st.tabs(
+    ["➕ CV005", "➕ CV006", "➕ CV007", "📄 Reporte PDF", "🔧 Esquema de correas", "📊 Detalle CV005"]
 )
 
 # ── CV005 ─────────────────────────────────────────────────────
@@ -1557,3 +1549,166 @@ with ftab_esquema:
         pct_unico_07, "#1D9E75", detalle_07
     )
     st.markdown(f'<div class="esquema-card">{svg_07}</div>', unsafe_allow_html=True)
+
+# ============================================================
+# PESTAÑA DETALLE CV005
+# ============================================================
+with ftab_cv005_detalle:
+
+    st.markdown("""
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;padding:0 0 14px">
+      <div>
+        <div style="font-size:10px;text-transform:uppercase;letter-spacing:1.5px;
+                    color:rgba(255,255,255,0.3);margin-bottom:4px">Vista detallada</div>
+        <div style="font-size:17px;font-weight:500;color:#F0F2F5">
+          CV005 — Instalación de fibra óptica
+        </div>
+      </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    # ── KPIs de CV005 ───────────────────────────────────────────────────
+    d1, d2, d3, d4 = st.columns(4)
+    pct_s_05 = met_05["pct_s"]
+    pct_t_05 = met_05["pct_t"]
+    av_global_05 = (
+        av_fis.get("fo_posicionada", {}).get("pct", 0) +
+        av_fis.get("fo_retirada",    {}).get("pct", 0) +
+        av_fis.get("clips",          {}).get("pct", 0) +
+        av_fis.get("tejido",         {}).get("pct", 0)
+    ) / 4
+
+    with d1:
+        st.markdown(kpi("Sensitiva desplegada",
+            f"{met_05['metros_s']:,.0f} m",
+            f"{pct_s_05:.1f}% de {met_05['total_s']:,.0f} m totales",
+            "#7F77DD"), unsafe_allow_html=True)
+    with d2:
+        st.markdown(kpi("Troncal",
+            f"{met_05['metros_t']:,.0f} m",
+            "100% completa" if met_05["troncal_completa"] else "⚠ Corte activo",
+            "#E24B4A"), unsafe_allow_html=True)
+    with d3:
+        est_tejida = av_fis.get("tejido", {}).get("est", 0)
+        pct_tejida = av_fis.get("tejido", {}).get("pct", 0.0)
+        st.markdown(kpi("FO Tejida",
+            f"{est_tejida:,} est",
+            f"{pct_tejida:.1f}% de {TOTAL_EST_CV005:,} estaciones",
+            "#34D399"), unsafe_allow_html=True)
+    with d4:
+        st.markdown(kpi("Avance global instalación",
+            f"{av_global_05:.1f}%",
+            "Promedio FO Pos. · Ret. · Clips · Tejida",
+            "#BA7517"), unsafe_allow_html=True)
+
+    st.markdown("<div style='height:14px'></div>", unsafe_allow_html=True)
+
+    # ── Gráfico SVG de tramos ────────────────────────────────────────────
+    st.markdown("""
+    <div style="font-size:11px;font-weight:500;color:rgba(255,255,255,0.4);
+                text-transform:uppercase;letter-spacing:1px;margin-bottom:8px">
+      Distribución de tramos por ítem
+    </div>""", unsafe_allow_html=True)
+
+    svg_af_detalle = generar_svg_avance_fisico(df_af, df_05_sens_tramos)
+    st.markdown(f"""
+    <div style="background:rgba(255,255,255,0.03);border:0.5px solid rgba(255,255,255,0.07);
+                border-radius:12px;padding:16px 12px">
+      {svg_af_detalle}
+    </div>""", unsafe_allow_html=True)
+
+    st.markdown("<div style='height:14px'></div>", unsafe_allow_html=True)
+
+    # ── Barras detalladas por ítem ───────────────────────────────────────
+    st.markdown("""
+    <div style="font-size:11px;font-weight:500;color:rgba(255,255,255,0.4);
+                text-transform:uppercase;letter-spacing:1px;margin-bottom:10px">
+      Avance por ítem
+    </div>""", unsafe_allow_html=True)
+
+    # Sensitiva primero
+    col_items = st.columns(2)
+    items_lista = [
+        ("sensitiva_fo", "Fibra Óptica Sensitiva", "#7F77DD",
+         met_05["metros_s"], met_05["total_s"] / FACTORES["CV005"]["sensitiva"],
+         pct_s_05,
+         f"{met_05['metros_s']:,.0f} m · {met_05['total_s']:,.0f} m totales · {FACTORES['CV005']['sensitiva']:.2f} m/est"),
+    ]
+    for ik, iv in ITEMS_AVANCE_FISICO.items():
+        datos = av_fis.get(ik, {"est": 0, "pct": 0.0})
+        items_lista.append((
+            ik, iv["label"], iv["color"],
+            datos.get("est", 0), TOTAL_EST_CV005,
+            datos.get("pct", 0.0),
+            f"{datos.get('est',0):,} est · {TOTAL_EST_CV005:,} est totales",
+        ))
+
+    for i, (ik, label, color, val, total, pct, sub) in enumerate(items_lista):
+        with col_items[i % 2]:
+            pct_w = min(pct, 100.0)
+            val_fmt = f"{val:,.0f} m" if ik == "sensitiva_fo" else f"{val:,} est"
+            st.markdown(f"""
+            <div style="background:rgba(255,255,255,0.03);border:0.5px solid rgba(255,255,255,0.07);
+                        border-radius:10px;padding:13px 15px;margin-bottom:10px">
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+                <span style="font-size:12px;font-weight:500;color:#F0F2F5">{label}</span>
+                <span style="font-size:13px;font-weight:500;color:{color}">{pct:.1f}%</span>
+              </div>
+              <div style="background:rgba(255,255,255,0.07);border-radius:99px;height:8px;overflow:hidden;margin-bottom:6px">
+                <div style="width:{pct_w:.1f}%;background:{color};height:100%;border-radius:99px;
+                            transition:width .4s ease"></div>
+              </div>
+              <div style="display:flex;justify-content:space-between">
+                <span style="font-size:10px;color:rgba(255,255,255,0.4)">{val_fmt}</span>
+                <span style="font-size:10px;color:rgba(255,255,255,0.3)">{sub}</span>
+              </div>
+            </div>""", unsafe_allow_html=True)
+
+    st.markdown("<div style='height:14px'></div>", unsafe_allow_html=True)
+
+    # ── Historial de registros CV005 ─────────────────────────────────────
+    st.markdown("""
+    <div style="font-size:11px;font-weight:500;color:rgba(255,255,255,0.4);
+                text-transform:uppercase;letter-spacing:1px;margin-bottom:8px">
+      Historial de registros CV005
+    </div>""", unsafe_allow_html=True)
+
+    # Combinar eventos de fibra + avance físico
+    rows_hist = []
+    if not df_05.empty and "created_at" in df_05.columns:
+        df_05_hist = df_05.copy()
+        df_05_hist["created_at_dt"] = pd.to_datetime(
+            df_05_hist["created_at"], utc=True).dt.tz_convert("America/Santiago")
+        for _, r in df_05_hist.sort_values("created_at_dt", ascending=False).iterrows():
+            rows_hist.append({
+                "Tipo": "Fibra óptica",
+                "Ítem": NIVELES.get(int(r.get("nivel", 5)), str(r.get("nivel", ""))),
+                "Frente": r.get("frente", "—"),
+                "Evento": r.get("tipo_evento", "—"),
+                "Tramo": f"Est. {r.get('estacion_desde','?')} → {r.get('estacion_hasta','?')}",
+                "Operador": r.get("operador", "—"),
+                "Observación": r.get("nota", ""),
+                "Fecha": r["created_at_dt"].strftime("%d-%m-%Y %H:%M"),
+            })
+
+    if not df_af.empty and "created_at" in df_af.columns:
+        df_af_hist = df_af.copy()
+        df_af_hist["created_at_dt"] = pd.to_datetime(
+            df_af_hist["created_at"], utc=True).dt.tz_convert("America/Santiago")
+        for _, r in df_af_hist.sort_values("created_at_dt", ascending=False).iterrows():
+            rows_hist.append({
+                "Tipo": "Avance físico",
+                "Ítem": ITEMS_AVANCE_FISICO.get(r.get("item",""), {}).get("label", r.get("item","—")),
+                "Frente": "—",
+                "Evento": r.get("tipo_evento", "—"),
+                "Tramo": f"Est. {r.get('est_desde','?')} → {r.get('est_hasta','?')}",
+                "Operador": r.get("operador", "—"),
+                "Observación": r.get("nota", ""),
+                "Fecha": r["created_at_dt"].strftime("%d-%m-%Y %H:%M"),
+            })
+
+    if rows_hist:
+        df_hist_05 = pd.DataFrame(rows_hist).sort_values("Fecha", ascending=False)
+        st.dataframe(df_hist_05, use_container_width=True, hide_index=True)
+    else:
+        st.info("Sin registros para CV005 aún.")
