@@ -574,7 +574,7 @@ frentes_07 = [{"label":"Frente único","rango":"Est. 3 → 842","color":"#639922
                "diff_metros": est_uni_07["diff_metros"] if est_uni_07 else 0}]
 
 # ── Gráfico SVG avance físico CV005 ─────────────────────────────────────
-def generar_svg_avance_fisico(df_af, df_05_sens):
+def generar_svg_avance_fisico(df_af, df_05_sens, pct_s_real=None):
     """
     Genera el SVG de avance físico CV005 con los tramos reales desde Supabase.
     Niveles (abajo→arriba): Troncal, Sensitiva, FO Pos, FO Ret, Clips, Tejida
@@ -669,8 +669,8 @@ def generar_svg_avance_fisico(df_af, df_05_sens):
                     f'stroke="{c}" stroke-width="4" stroke-linecap="round" opacity="0.9"/>'
                 )
             total_est_s += abs(h - d)
-    # Porcentaje desde met_05 (ya calculado correctamente con offset)
-    pct_s_total = min(total_est_s / TOTAL_EST_CV005 * 100, 100.0)
+    # Porcentaje: usar el valor real de met_05 si viene, si no calcular desde estaciones
+    pct_s_total = pct_s_real if pct_s_real is not None else min(total_est_s / TOTAL_EST_CV005 * 100, 100.0)
     parts.append(f'<text x="{X0-4}" y="{y+3}" text-anchor="end" '
                  f'fill="{c}" font-size="8">{LABELS["sensitiva"]}</text>')
     parts.append(f'<text x="{X1+4}" y="{y+3}" text-anchor="start" '
@@ -1623,7 +1623,7 @@ with ftab_cv005_detalle:
       Distribución de tramos por ítem
     </div>""", unsafe_allow_html=True)
 
-    svg_af_detalle = generar_svg_avance_fisico(df_af, df_05_sens_tramos)
+    svg_af_detalle = generar_svg_avance_fisico(df_af, df_05_sens_tramos, pct_s_real=met_05["pct_s"])
     st.markdown(f"""
     <div style="background:rgba(255,255,255,0.03);border:0.5px solid rgba(255,255,255,0.07);
                 border-radius:12px;padding:16px 12px">
