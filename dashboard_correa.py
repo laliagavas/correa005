@@ -33,6 +33,16 @@ NIVELES             = {0: "Troncal", 5: "Sensitiva"}
 FRENTES             = {"CV005": ["tp1","em"], "CV006": ["tp1","tp2"], "CV007": ["unico"]}
 TIPOS_EVENTO        = ["Avance de fibra","Corte","Fusión / empalme","Mantención","Otro"]
 
+# Ítems de avance físico CV005 (instalación de fibra sobre los polines)
+ITEMS_AVANCE_FISICO = {
+    "fo_posicionada": {"label": "FO Posicionada",       "color": "#06B6D4"},
+    "fo_retirada":    {"label": "FO Antigua Retirada",  "color": "#F97316"},
+    "clips":          {"label": "Clips Nuevos Pos.",    "color": "#A78BFA"},
+    "tejido":         {"label": "FO Tejida",            "color": "#34D399"},
+}
+TOTAL_EST_CV005 = 3922  # total de estaciones CV005 (1 a 3823 + offset)
+TIPOS_AVANCE_FISICO = ["Avance", "Corrección", "Otro"]
+
 # Metros de cabecera (DTS → primera estación) que se suman fijos al metraje
 # No dependen del avance registrado — son metros físicos siempre presentes
 OFFSET_METROS = {
@@ -68,6 +78,58 @@ def leer_datos(correa_id):
         return pd.DataFrame(resp.data)
     except Exception:
         return pd.DataFrame()
+
+def leer_avance_fisico() -> "pd.DataFrame":
+    """Lee todos los registros de avance físico CV005 desde Supabase."""
+    try:
+        resp = supabase.table("avance_fisico_cv005").select("*").execute()
+        return pd.DataFrame(resp.data)
+    except Exception:
+        return pd.DataFrame()
+
+
+def guardar_avance_fisico(operador, item, tipo_evento, est_desde, est_hasta, nota) -> bool:
+    """Guarda un nuevo registro de avance físico CV005."""
+    try:
+        supabase.table("avance_fisico_cv005").insert({
+            "operador":   operador,
+            "item":       item,
+            "tipo_evento": tipo_evento,
+            "est_desde":  int(est_desde),
+            "est_hasta":  int(est_hasta),
+            "nota":       nota,
+        }).execute()
+        return True
+    except Exception as e:
+        st.error(f"Error al guardar avance físico: {e}")
+        return False
+
+
+def calcular_avance_fisico(df_af: "pd.DataFrame") -> dict:
+    """
+    Por cada ítem, toma el registro más reciente y calcula
+    estaciones completadas y porcentaje sobre TOTAL_EST_CV005.
+    """
+    result = {}
+    for item_key in ITEMS_AVANCE_FISICO:
+        if df_af.empty:
+            result[item_key] = {"est": 0, "pct": 0.0}
+            continue
+        sub = df_af[df_af["item"] == item_key].copy()
+        if sub.empty:
+            result[item_key] = {"est": 0, "pct": 0.0}
+            continue
+        if "created_at" in sub.columns:
+            sub = sub.sort_values("created_at", ascending=False)
+        row = sub.iloc[0]
+        est = abs(int(row["est_hasta"]) - int(row["est_desde"]))
+        pct = min(est / TOTAL_EST_CV005 * 100, 100.0)
+        result[item_key] = {"est": est, "pct": pct,
+                             "desde": int(row["est_desde"]),
+                             "hasta": int(row["est_hasta"]),
+                             "operador": row.get("operador","—")}
+    return result
+
 
 def guardar_registro(operador, desde, hasta, nivel, nota, tipo_evento, correa_id, frente):
     try:
@@ -285,6 +347,8 @@ with st.spinner("Cargando datos…"):
     df_05 = leer_datos("CV005")
     df_06 = leer_datos("CV006")
     df_07 = leer_datos("CV007")
+    df_af = leer_avance_fisico()
+    av_fis = calcular_avance_fisico(df_af)
 
 met_05 = calcular_metraje(df_05, "CV005")
 met_06 = calcular_metraje(df_06, "CV006")
@@ -366,7 +430,7 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
-def render_card(col, nombre, met, completada, frentes_txt):
+def render_card(col, nombre, met, completada, frentes_txt, av_fis_extra=""):
     color_s = "#639922" if completada else "#7F77DD"
     pct_s   = 100.0 if completada else met["pct_s"]
     pct_t   = met["pct_t"]
@@ -460,6 +524,8 @@ def render_card(col, nombre, met, completada, frentes_txt):
     </div>"""
     with col:
         st.markdown(html, unsafe_allow_html=True)
+        if av_fis_extra:
+            st.markdown(av_fis_extra, unsafe_allow_html=True)
 
 c1, c2, c3 = st.columns(3)
 
@@ -510,7 +576,29 @@ frentes_07 = [{"label":"Frente único","rango":"Est. 3 → 842","color":"#639922
                "estado": est_uni_07["estado"] if est_uni_07 else "nuevo",
                "diff_metros": est_uni_07["diff_metros"] if est_uni_07 else 0}]
 
-render_card(c1, "CV005", met_05, False, frentes_05)
+# Barras de avance físico para CV005
+af_html = """<div style="background:rgba(255,255,255,0.02);border:0.5px solid rgba(255,255,255,0.06);
+             border-radius:10px;padding:12px 14px;margin-top:8px">
+  <div style="font-size:9px;text-transform:uppercase;letter-spacing:.8px;
+              color:rgba(255,255,255,0.3);margin-bottom:10px">Avance físico instalación</div>"""
+for ik, iv in ITEMS_AVANCE_FISICO.items():
+    datos = av_fis.get(ik, {"est": 0, "pct": 0.0})
+    pct   = datos["pct"]
+    est   = datos.get("est", 0)
+    af_html += f"""
+  <div style="margin-bottom:8px">
+    <div style="display:flex;justify-content:space-between;margin-bottom:2px">
+      <span style="font-size:10px;color:rgba(255,255,255,0.5)">{iv['label']}</span>
+      <span style="font-size:10px;font-weight:500;color:{iv['color']}">{pct:.1f}%</span>
+    </div>
+    <div style="background:rgba(255,255,255,0.07);border-radius:99px;height:5px;overflow:hidden">
+      <div style="width:{min(pct,100):.1f}%;background:{iv['color']};height:100%;border-radius:99px"></div>
+    </div>
+    <div style="font-size:9px;color:rgba(255,255,255,0.3);margin-top:2px">{est:,} est de {TOTAL_EST_CV005:,}</div>
+  </div>"""
+af_html += "</div>"
+
+render_card(c1, "CV005", met_05, False, frentes_05, av_fis_extra=af_html)
 render_card(c2, "CV006", met_06, False, frentes_06)
 cv007_completada = met_07["troncal_completa"] and met_07["pct_s"] >= 99.9
 render_card(c3, "CV007", met_07, cv007_completada, frentes_07)
@@ -612,6 +700,41 @@ with ftab05:
                     if guardar_registro(op_05.strip(), d_05, h_05, niv_05, nota_05, te_05, "CV005", fk_05):
                         st.success(f"✅ Guardado — CV005 / Frente {fk_05.upper()}")
                         st.rerun()
+
+    # ── Formulario avance físico CV005 ──────────────────────────────────
+    st.markdown("""
+    <div style="font-size:10px;text-transform:uppercase;letter-spacing:.8px;
+                color:rgba(255,255,255,0.35);margin-top:16px;margin-bottom:8px">
+      Avance físico instalación — CV005
+    </div>""", unsafe_allow_html=True)
+
+    with st.form(key="form_av_fisico_cv005"):
+        af1, af2 = st.columns(2)
+        with af1:
+            af_op   = st.text_input("Operador", key="af_op_cv005", placeholder="Nombre")
+            af_item = st.selectbox("Ítem",
+                        list(ITEMS_AVANCE_FISICO.keys()),
+                        format_func=lambda x: ITEMS_AVANCE_FISICO[x]["label"],
+                        key="af_item_cv005")
+            af_tipo = st.selectbox("Tipo de evento", TIPOS_AVANCE_FISICO, key="af_tipo_cv005")
+        with af2:
+            af_desde = st.number_input("Desde Est.", min_value=1, max_value=3823,
+                                        value=1, step=1, key="af_desde_cv005", format="%d")
+            af_hasta = st.number_input("Hasta Est.", min_value=1, max_value=3823,
+                                        value=3823, step=1, key="af_hasta_cv005", format="%d")
+            af_nota  = st.text_input("Observación", key="af_nota_cv005", placeholder="Opcional")
+
+        af_est = abs(int(af_hasta) - int(af_desde))
+        af_pct = min(af_est / TOTAL_EST_CV005 * 100, 100.0)
+        st.caption(f"📏 {af_est:,} est de {TOTAL_EST_CV005:,} · **{af_pct:.1f}%** de avance")
+
+        if st.form_submit_button("💾 Guardar avance físico CV005"):
+            if not af_op.strip():
+                st.error("Ingresa el operador.")
+            elif guardar_avance_fisico(af_op.strip(), af_item, af_tipo,
+                                        af_desde, af_hasta, af_nota):
+                st.success(f"✅ Guardado — {ITEMS_AVANCE_FISICO[af_item]['label']}")
+                st.rerun()
     with col_info:
         st.markdown("""
         <div style="background:rgba(255,255,255,0.03);border:0.5px solid rgba(255,255,255,0.07);
