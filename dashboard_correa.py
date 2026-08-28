@@ -653,23 +653,24 @@ def generar_svg_avance_fisico(df_af, df_05_sens):
     parts.append(f'<text x="{X1+4}" y="{y+3}" text-anchor="start" '
                  f'fill="{c}" font-size="8">100%</text>')
 
-    # Sensitiva: tramos desde eventos_correa (df_05_sens)
+    # Sensitiva: tramos activos por frente (uno por frente, el más reciente)
     y  = NIVELES_Y["sensitiva"]
     c  = COLORES["sensitiva"]
-    pct_s_total = 0.0
+    total_est_s = 0
     if not df_05_sens.empty:
-        sub_s = df_05_sens[df_05_sens["nivel"].astype(int) == 5]
-        if not sub_s.empty:
-            total_est_s = 0
-            for _, row in sub_s.iterrows():
-                d, h = int(row["estacion_desde"]), int(row["estacion_hasta"])
-                x0s, x1s = sorted([ex(d), ex(h)])
+        for _, row in df_05_sens.iterrows():
+            d, h = int(row["estacion_desde"]), int(row["estacion_hasta"])
+            x0s, x1s = sorted([ex(d), ex(h)])
+            if x1s - x0s < 1.5:
+                parts.append(f'<circle cx="{(x0s+x1s)/2:.1f}" cy="{y}" r="2.5" fill="{c}"/>')
+            else:
                 parts.append(
                     f'<line x1="{x0s:.1f}" y1="{y}" x2="{x1s:.1f}" y2="{y}" '
                     f'stroke="{c}" stroke-width="4" stroke-linecap="round" opacity="0.9"/>'
                 )
-                total_est_s += abs(h - d)
-            pct_s_total = min(total_est_s / TOTAL_EST_CV005 * 100, 100.0)
+            total_est_s += abs(h - d)
+    # Porcentaje desde met_05 (ya calculado correctamente con offset)
+    pct_s_total = min(total_est_s / TOTAL_EST_CV005 * 100, 100.0)
     parts.append(f'<text x="{X0-4}" y="{y+3}" text-anchor="end" '
                  f'fill="{c}" font-size="8">{LABELS["sensitiva"]}</text>')
     parts.append(f'<text x="{X1+4}" y="{y+3}" text-anchor="start" '
@@ -708,10 +709,22 @@ def generar_svg_avance_fisico(df_af, df_05_sens):
 
 # Obtener tramos de sensitiva CV005 para el gráfico (todos los registros, no solo el más reciente)
 def leer_todos_tramos_sensitiva_cv005(df):
-    """Retorna todos los registros de sensitiva de CV005 (nivel=5) para dibujar tramos."""
+    """
+    Retorna el tramo activo (más reciente) por cada frente de CV005
+    para dibujar en el gráfico SVG. Evita sumar registros históricos.
+    """
     if df.empty:
         return pd.DataFrame()
-    return df[df["nivel"].astype(int) == 5].copy()
+    sub = df[df["nivel"].astype(int) == 5].copy()
+    if sub.empty:
+        return pd.DataFrame()
+    if "created_at" in sub.columns:
+        sub = sub.sort_values("created_at", ascending=False)
+    if "frente" in sub.columns:
+        # Un solo registro por frente (el más reciente)
+        return sub.drop_duplicates(subset=["frente"], keep="first")
+    # Si no hay columna frente, tomar solo el más reciente
+    return sub.head(1)
 
 
 df_05_sens_tramos = leer_todos_tramos_sensitiva_cv005(df_05)
