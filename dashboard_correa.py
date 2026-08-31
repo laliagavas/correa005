@@ -809,8 +809,8 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
-ftab05, ftab06, ftab07, ftab_pdf, ftab_esquema, ftab_cv005_detalle = st.tabs(
-    ["➕ CV005", "➕ CV006", "➕ CV007", "📄 Reporte PDF", "🔧 Esquema de correas", "📊 Detalle CV005"]
+ftab05, ftab06, ftab07, ftab_pdf, ftab_esquema, ftab_cv005_detalle, ftab_cortes = st.tabs(
+    ["➕ CV005", "➕ CV006", "➕ CV007", "📄 Reporte PDF", "🔧 Esquema de correas", "📊 Detalle CV005", "📈 Análisis de cortes"]
 )
 
 # ── CV005 ─────────────────────────────────────────────────────
@@ -1725,3 +1725,268 @@ with ftab_cv005_detalle:
         st.dataframe(df_hist_05, use_container_width=True, hide_index=True)
     else:
         st.info("Sin registros para CV005 aún.")
+
+# ============================================================
+# PESTAÑA ANÁLISIS DE CORTES
+# ============================================================
+
+def leer_historial_cortes() -> pd.DataFrame:
+    try:
+        resp = supabase.table("historial_cortes").select("*").execute()
+        df = pd.DataFrame(resp.data)
+        if not df.empty and "fecha_corte" in df.columns:
+            df["fecha_corte"] = pd.to_datetime(df["fecha_corte"])
+        return df
+    except Exception:
+        return pd.DataFrame()
+
+
+CAUSAS_CORTE = [
+    "Apretón",
+    "Falla Fijación Rollo / Roce Correa",
+    "Fricción con Correa",
+    "Fricción con Viga",
+    "Fricción con Corrugado",
+    "Daño Rodamiento / Fricción",
+    "Roce Polín",
+    "Problema Caja de Fusión",
+    "Tirón a fusión",
+    "Otro",
+]
+
+with ftab_cortes:
+    st.markdown("""
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;padding:0 0 14px">
+      <div>
+        <div style="font-size:10px;text-transform:uppercase;letter-spacing:1.5px;
+                    color:rgba(255,255,255,0.3);margin-bottom:4px">Estadísticas</div>
+        <div style="font-size:17px;font-weight:500;color:#F0F2F5">
+          Análisis de cortes — CV005 · CV006 · CV007
+        </div>
+      </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    df_cortes = leer_historial_cortes()
+
+    if df_cortes.empty:
+        st.info("Sin registros de cortes aún. Ejecuta el SQL inicial en Supabase.")
+    else:
+        # ── Filtros ─────────────────────────────────────────────────────
+        fc1, fc2, fc3 = st.columns(3)
+        with fc1:
+            filtro_correa = st.multiselect(
+                "Correa", ["CV005", "CV006", "CV007"],
+                default=["CV005", "CV006", "CV007"], key="fc_correa"
+            )
+        with fc2:
+            filtro_tipo = st.multiselect(
+                "Tipo de fibra", ["Troncal", "Sensitiva"],
+                default=["Troncal", "Sensitiva"], key="fc_tipo"
+            )
+        with fc3:
+            all_causas = sorted(df_cortes["causa_corte"].dropna().unique().tolist())
+            filtro_causa = st.multiselect(
+                "Causa", all_causas, default=all_causas, key="fc_causa"
+            )
+
+        df_f = df_cortes[
+            df_cortes["correa_id"].isin(filtro_correa) &
+            df_cortes["tipo_fibra"].isin(filtro_tipo) &
+            df_cortes["causa_corte"].isin(filtro_causa)
+        ].copy()
+
+        st.markdown("<div style='height:6px'></div>", unsafe_allow_html=True)
+
+        # ── KPIs ────────────────────────────────────────────────────────
+        kc1, kc2, kc3, kc4 = st.columns(4)
+        causa_top = df_f["causa_corte"].value_counts().index[0] if not df_f.empty else "—"
+        correa_top = df_f["correa_id"].value_counts().index[0] if not df_f.empty else "—"
+        n_total = len(df_f)
+        n_troncal = len(df_f[df_f["tipo_fibra"] == "Troncal"])
+        n_sensitiva = len(df_f[df_f["tipo_fibra"] == "Sensitiva"])
+
+        with kc1:
+            st.markdown(kpi("Total de cortes", str(n_total),
+                f"Troncal: {n_troncal} · Sensitiva: {n_sensitiva}", "#E24B4A"),
+                unsafe_allow_html=True)
+        with kc2:
+            st.markdown(kpi("Causa más frecuente", causa_top,
+                f"{df_f['causa_corte'].value_counts().iloc[0] if not df_f.empty else 0} ocurrencias",
+                "#F59E0B"), unsafe_allow_html=True)
+        with kc3:
+            st.markdown(kpi("Correa con más cortes", correa_top,
+                f"{df_f['correa_id'].value_counts().iloc[0] if not df_f.empty else 0} eventos",
+                "#378ADD"), unsafe_allow_html=True)
+        with kc4:
+            if not df_f.empty and "fecha_corte" in df_f.columns:
+                ultimo = df_f.sort_values("fecha_corte", ascending=False).iloc[0]
+                ultimo_str = ultimo["fecha_corte"].strftime("%d-%m-%Y")
+                ultimo_sub = f"{ultimo['correa_id']} · {ultimo['causa_corte']}"
+            else:
+                ultimo_str, ultimo_sub = "—", "—"
+            st.markdown(kpi("Último corte registrado", ultimo_str, ultimo_sub, "#7F77DD"),
+                unsafe_allow_html=True)
+
+        st.markdown("<div style='height:14px'></div>", unsafe_allow_html=True)
+
+        # ── Gráfico interactivo con st.components ───────────────────────
+        st.markdown("""
+        <div style="font-size:11px;font-weight:500;color:rgba(255,255,255,0.4);
+                    text-transform:uppercase;letter-spacing:1px;margin-bottom:8px">
+          Distribución de cortes
+        </div>""", unsafe_allow_html=True)
+
+        import json
+        data_json = []
+        for _, r in df_f.iterrows():
+            data_json.append({
+                "correa": r.get("correa_id", ""),
+                "tipo":   r.get("tipo_fibra", ""),
+                "causa":  r.get("causa_corte", ""),
+                "est":    int(r["estacion"]) if pd.notna(r.get("estacion")) else None,
+                "fecha":  r["fecha_corte"].strftime("%d-%m-%Y") if pd.notna(r.get("fecha_corte")) else "",
+            })
+
+        html_chart = f"""
+<!DOCTYPE html><html><head>
+<style>
+* {{ box-sizing:border-box;margin:0;padding:0;font-family:'Inter',sans-serif; }}
+body {{ background:transparent;color:#F0F2F5;padding:4px 0; }}
+.charts {{ display:grid;grid-template-columns:1fr 1fr;gap:14px; }}
+.card {{ background:rgba(255,255,255,0.03);border:0.5px solid rgba(255,255,255,0.07);
+         border-radius:10px;padding:14px; }}
+.card-title {{ font-size:10px;font-weight:500;color:rgba(255,255,255,0.4);
+               text-transform:uppercase;letter-spacing:.8px;margin-bottom:12px; }}
+.bar-row {{ display:flex;align-items:center;gap:8px;margin-bottom:6px; }}
+.bar-label {{ font-size:10px;color:rgba(255,255,255,0.5);min-width:180px;
+              text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis; }}
+.bar-bg {{ flex:1;background:rgba(255,255,255,0.06);border-radius:99px;height:8px; }}
+.bar-fill {{ height:8px;border-radius:99px; }}
+.bar-count {{ font-size:10px;font-weight:500;min-width:22px; }}
+</style></head><body>
+<div class="charts">
+  <div class="card">
+    <div class="card-title">Por causa de corte</div>
+    <div id="causas"></div>
+  </div>
+  <div class="card">
+    <div class="card-title">Por correa y tipo de fibra</div>
+    <div id="grupos"></div>
+  </div>
+</div>
+<script>
+const data = {json.dumps(data_json)};
+const COLORS = {{CV005:"#E24B4A",CV006:"#378ADD",CV007:"#34D399"}};
+const TIPO_COLOR = {{Troncal:"#E24B4A",Sensitiva:"#7F77DD"}};
+
+function renderBars(elId, entries, colorFn) {{
+  const el = document.getElementById(elId);
+  const max = entries[0]?.[1] || 1;
+  el.innerHTML = entries.map(([label, count, color]) => `
+    <div class="bar-row">
+      <div class="bar-label" title="${{label}}">${{label}}</div>
+      <div class="bar-bg">
+        <div class="bar-fill" style="width:${{count/max*100}}%;background:${{color}}"></div>
+      </div>
+      <div class="bar-count" style="color:${{color}}">${{count}}</div>
+    </div>`).join('');
+}}
+
+// Causas
+const causas = {{}};
+data.forEach(d => {{
+  causas[d.causa] = (causas[d.causa]||{{n:0,correa:{{}}}});
+  causas[d.causa].n++;
+  causas[d.causa].correa[d.correa] = (causas[d.causa].correa[d.correa]||0)+1;
+}});
+const causasArr = Object.entries(causas)
+  .sort((a,b)=>b[1].n-a[1].n)
+  .map(([k,v])=>{{
+    const topCorrea = Object.entries(v.correa).sort((a,b)=>b[1]-a[1])[0][0];
+    return [k, v.n, COLORS[topCorrea]];
+  }});
+renderBars('causas', causasArr);
+
+// Por correa+tipo
+const grupos = {{}};
+data.forEach(d => {{
+  const k = d.correa + ' · ' + d.tipo;
+  grupos[k] = grupos[k] || {{n:0, correa:d.correa, tipo:d.tipo}};
+  grupos[k].n++;
+}});
+const gruposArr = Object.entries(grupos)
+  .sort((a,b)=>b[1].n-a[1].n)
+  .map(([k,v])=>[k, v.n, TIPO_COLOR[v.tipo]]);
+renderBars('grupos', gruposArr);
+</script></body></html>"""
+
+        st.components.v1.html(html_chart, height=350, scrolling=False)
+
+        st.markdown("<div style='height:14px'></div>", unsafe_allow_html=True)
+
+        # ── Tabla detalle ────────────────────────────────────────────────
+        st.markdown("""
+        <div style="font-size:11px;font-weight:500;color:rgba(255,255,255,0.4);
+                    text-transform:uppercase;letter-spacing:1px;margin-bottom:8px">
+          Registro detallado de cortes
+        </div>""", unsafe_allow_html=True)
+
+        df_tabla = df_f.copy()
+        if "fecha_corte" in df_tabla.columns:
+            df_tabla["Fecha"] = df_tabla["fecha_corte"].dt.strftime("%d-%m-%Y")
+        cols_show = {
+            "correa_id":   "Correa",
+            "tipo_fibra":  "Tipo fibra",
+            "estacion":    "Estación",
+            "Fecha":       "Fecha corte",
+            "causa_corte": "Causa",
+            "nota":        "Ubicación / nota",
+            "operador":    "Operador",
+        }
+        df_view = df_tabla[[c for c in cols_show if c in df_tabla.columns]].rename(columns=cols_show)
+        df_view = df_view.sort_values("Fecha corte", ascending=False)
+        st.dataframe(df_view, use_container_width=True, hide_index=True)
+
+        st.markdown("<div style='height:14px'></div>", unsafe_allow_html=True)
+
+        # ── Formulario registro nuevo corte ─────────────────────────────
+        st.markdown("""
+        <div style="font-size:11px;font-weight:500;color:rgba(255,255,255,0.4);
+                    text-transform:uppercase;letter-spacing:1px;margin-bottom:8px">
+          Registrar nuevo corte
+        </div>""", unsafe_allow_html=True)
+
+        with st.form(key="form_nuevo_corte"):
+            nc1, nc2, nc3 = st.columns(3)
+            with nc1:
+                nc_correa  = st.selectbox("Correa", ["CV005","CV006","CV007"], key="nc_correa")
+                nc_tipo    = st.selectbox("Tipo de fibra", ["Troncal","Sensitiva"], key="nc_tipo")
+            with nc2:
+                nc_est     = st.number_input("Estación", min_value=1, max_value=3823,
+                                              value=1, step=1, key="nc_est", format="%d")
+                nc_fecha   = st.date_input("Fecha del corte", key="nc_fecha")
+            with nc3:
+                nc_causa   = st.selectbox("Causa del corte", CAUSAS_CORTE, key="nc_causa")
+                nc_op      = st.text_input("Operador", key="nc_op", placeholder="Nombre")
+            nc_nota = st.text_input("Ubicación / observación", key="nc_nota",
+                                     placeholder="Ej: Estación de Carga 807")
+
+            if st.form_submit_button("💾 Registrar corte"):
+                if not nc_op.strip():
+                    st.error("Ingresa el operador.")
+                else:
+                    try:
+                        supabase.table("historial_cortes").insert({
+                            "correa_id":   nc_correa,
+                            "tipo_fibra":  nc_tipo,
+                            "estacion":    int(nc_est),
+                            "fecha_corte": str(nc_fecha),
+                            "causa_corte": nc_causa,
+                            "operador":    nc_op.strip(),
+                            "nota":        nc_nota,
+                        }).execute()
+                        st.success(f"✅ Corte registrado — {nc_correa} · {nc_tipo} · Est. {nc_est}")
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"Error al guardar: {e}")
