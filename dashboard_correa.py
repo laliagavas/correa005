@@ -1737,7 +1737,8 @@ def leer_historial_cortes() -> pd.DataFrame:
         if not df.empty and "fecha_corte" in df.columns:
             df["fecha_corte"] = pd.to_datetime(df["fecha_corte"])
         return df
-    except Exception:
+    except Exception as e:
+        st.warning(f"⚠ Error leyendo historial_cortes: {e}")
         return pd.DataFrame()
 
 
@@ -1769,8 +1770,14 @@ with ftab_cortes:
 
     df_cortes = leer_historial_cortes()
 
+    # Debug temporal — muestra si hay error de conexión o RLS
     if df_cortes.empty:
-        st.info("Sin registros de cortes aún. Ejecuta el SQL inicial en Supabase.")
+        try:
+            resp_test = supabase.table("historial_cortes").select("id", count="exact").execute()
+            st.info(f"Sin registros de cortes aún. Ejecuta el SQL inicial en Supabase. (Filas en tabla: {resp_test.count})")
+        except Exception as e:
+            st.error(f"Error accediendo a historial_cortes: {e} — Verifica RLS en Supabase (desactiva o agrega política pública)")
+        st.stop()
     else:
         # ── Filtros ─────────────────────────────────────────────────────
         fc1, fc2, fc3 = st.columns(3)
