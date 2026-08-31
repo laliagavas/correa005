@@ -1859,18 +1859,18 @@ with ftab_cortes:
 <!DOCTYPE html><html><head>
 <style>
 * {{ box-sizing:border-box;margin:0;padding:0;font-family:'Inter',sans-serif; }}
-body {{ background:transparent;color:#F0F2F5;padding:4px 0; }}
-.charts {{ display:grid;grid-template-columns:1fr 1fr;gap:14px; }}
-.card {{ background:rgba(255,255,255,0.03);border:0.5px solid rgba(255,255,255,0.07);
-         border-radius:10px;padding:14px; }}
-.card-title {{ font-size:10px;font-weight:500;color:rgba(255,255,255,0.4);
-               text-transform:uppercase;letter-spacing:.8px;margin-bottom:12px; }}
-.bar-row {{ display:flex;align-items:center;gap:8px;margin-bottom:6px; }}
-.bar-label {{ font-size:10px;color:rgba(255,255,255,0.5);min-width:180px;
+body {{ background:#0D1117;color:#F0F2F5;padding:8px; }}
+.charts {{ display:grid;grid-template-columns:1fr 1fr;gap:12px; }}
+.card {{ background:#161B22;border:0.5px solid rgba(255,255,255,0.08);
+         border-radius:10px;padding:14px 16px; }}
+.card-title {{ font-size:10px;font-weight:600;color:rgba(255,255,255,0.35);
+               text-transform:uppercase;letter-spacing:1px;margin-bottom:14px; }}
+.bar-row {{ display:flex;align-items:center;gap:10px;margin-bottom:8px; }}
+.bar-label {{ font-size:10px;color:rgba(255,255,255,0.55);width:185px;min-width:185px;
               text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis; }}
-.bar-bg {{ flex:1;background:rgba(255,255,255,0.06);border-radius:99px;height:8px; }}
-.bar-fill {{ height:8px;border-radius:99px; }}
-.bar-count {{ font-size:10px;font-weight:500;min-width:22px; }}
+.bar-wrap {{ flex:1;background:rgba(255,255,255,0.07);border-radius:99px;height:9px;overflow:hidden; }}
+.bar-fill {{ height:9px;border-radius:99px;transition:width .3s ease; }}
+.bar-count {{ font-size:10px;font-weight:600;min-width:20px;text-align:left; }}
 </style></head><body>
 <div class="charts">
   <div class="card">
@@ -1884,55 +1884,53 @@ body {{ background:transparent;color:#F0F2F5;padding:4px 0; }}
 </div>
 <script>
 const data = {json.dumps(data_json)};
-const COLORS = {{CV005:"#E24B4A",CV006:"#378ADD",CV007:"#34D399"}};
-const TIPO_COLOR = {{Troncal:"#E24B4A",Sensitiva:"#7F77DD"}};
+const COLORS  = {{CV005:"#E24B4A", CV006:"#378ADD", CV007:"#34D399"}};
+const TCOLORS = {{Troncal:"#E24B4A", Sensitiva:"#7F77DD"}};
 
-function renderBars(elId, entries, colorFn) {{
-  const el = document.getElementById(elId);
+function renderBars(elId, entries) {{
+  const el  = document.getElementById(elId);
   const max = entries[0]?.[1] || 1;
   el.innerHTML = entries.map(([label, count, color]) => `
     <div class="bar-row">
       <div class="bar-label" title="${{label}}">${{label}}</div>
-      <div class="bar-bg">
-        <div class="bar-fill" style="width:${{count/max*100}}%;background:${{color}}"></div>
+      <div class="bar-wrap">
+        <div class="bar-fill" style="width:${{(count/max*100).toFixed(1)}}%;background:${{color}};"></div>
       </div>
       <div class="bar-count" style="color:${{color}}">${{count}}</div>
     </div>`).join('');
 }}
 
-// Causas
+// ── Causas ──────────────────────────────────────────────
 const causas = {{}};
 data.forEach(d => {{
-  causas[d.causa] = (causas[d.causa]||{{n:0,correa:{{}}}});
+  if (!causas[d.causa]) causas[d.causa] = {{n:0, correas:{{}}}};
   causas[d.causa].n++;
-  causas[d.causa].correa[d.correa] = (causas[d.causa].correa[d.correa]||0)+1;
+  causas[d.causa].correas[d.correa] = (causas[d.causa].correas[d.correa]||0)+1;
 }});
 const causasArr = Object.entries(causas)
-  .sort((a,b)=>b[1].n-a[1].n)
-  .map(([k,v])=>{{
-    const sorted = Object.entries(v.correa).sort((a,b)=>b[1]-a[1]);
-    // Si hay empate entre las dos primeras, usar color neutro
-    const color = (sorted.length > 1 && sorted[0][1] === sorted[1][1])
-      ? "#9CA3AF"
-      : COLORS[sorted[0][0]];
+  .sort((a,b) => b[1].n - a[1].n)
+  .map(([k,v]) => {{
+    const sorted = Object.entries(v.correas).sort((a,b) => b[1]-a[1]);
+    const color  = (sorted.length>1 && sorted[0][1]===sorted[1][1])
+                   ? "#9CA3AF" : COLORS[sorted[0][0]];
     return [k, v.n, color];
   }});
 renderBars('causas', causasArr);
 
-// Por correa+tipo
+// ── Por correa + tipo ────────────────────────────────────
 const grupos = {{}};
 data.forEach(d => {{
   const k = d.correa + ' · ' + d.tipo;
-  grupos[k] = grupos[k] || {{n:0, correa:d.correa, tipo:d.tipo}};
+  if (!grupos[k]) grupos[k] = {{n:0, tipo:d.tipo}};
   grupos[k].n++;
 }});
 const gruposArr = Object.entries(grupos)
-  .sort((a,b)=>b[1].n-a[1].n)
-  .map(([k,v])=>[k, v.n, TIPO_COLOR[v.tipo]]);
+  .sort((a,b) => b[1].n - a[1].n)
+  .map(([k,v]) => [k, v.n, TCOLORS[v.tipo]]);
 renderBars('grupos', gruposArr);
 </script></body></html>"""
 
-        st.components.v1.html(html_chart, height=350, scrolling=False)
+        st.components.v1.html(html_chart, height=360, scrolling=False)
 
         st.markdown("<div style='height:14px'></div>", unsafe_allow_html=True)
 
