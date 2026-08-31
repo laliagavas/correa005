@@ -1903,8 +1903,12 @@ data.forEach(d => {{
 const causasArr = Object.entries(causas)
   .sort((a,b)=>b[1].n-a[1].n)
   .map(([k,v])=>{{
-    const topCorrea = Object.entries(v.correa).sort((a,b)=>b[1]-a[1])[0][0];
-    return [k, v.n, COLORS[topCorrea]];
+    const sorted = Object.entries(v.correa).sort((a,b)=>b[1]-a[1]);
+    // Si hay empate entre las dos primeras, usar color neutro
+    const color = (sorted.length > 1 && sorted[0][1] === sorted[1][1])
+      ? "#9CA3AF"
+      : COLORS[sorted[0][0]];
+    return [k, v.n, color];
   }});
 renderBars('causas', causasArr);
 
