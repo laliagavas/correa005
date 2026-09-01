@@ -641,19 +641,21 @@ def generar_svg_avance_fisico(df_af, df_05_sens, pct_s_real=None):
     parts.append(f'<text x="{X1}" y="232" text-anchor="middle" '
                  f'fill="#9CA3AF" font-size="8" font-weight="500">EM</text>')
 
-    # ── Línea vertical de referencia: Centro instalación Est. 1850/1851 ──
-    x_centro = ex(1850)
-    y_top    = min(NIVELES_Y.values()) - 10
-    y_bot    = 210
-    parts.append(
-        f'<line x1="{x_centro:.1f}" y1="{y_top}" x2="{x_centro:.1f}" y2="{y_bot}" '
-        f'stroke="#F59E0B" stroke-width="1.2" stroke-dasharray="4 3" opacity="0.8"/>'
-    )
-    # Etiqueta arriba
-    parts.append(
-        f'<text x="{x_centro+4:.1f}" y="{y_top+10}" fill="#F59E0B" '
-        f'font-size="8" font-weight="500">Centro inst. 1850</text>'
-    )
+    # ── Líneas verticales de referencia: Centro instalación Est. 1850 y 1851 ──
+    y_top = min(NIVELES_Y.values()) - 10
+    y_bot = 210
+    for est_ref, label_ref in [(1850, "Est. 1850"), (1851, "Est. 1851")]:
+        x_ref = ex(est_ref)
+        parts.append(
+            f'<line x1="{x_ref:.1f}" y1="{y_top}" x2="{x_ref:.1f}" y2="{y_bot}" '
+            f'stroke="#F59E0B" stroke-width="1.2" stroke-dasharray="4 3" opacity="0.85"/>'
+        )
+        anchor = "start" if est_ref == 1851 else "end"
+        offset = 3 if est_ref == 1851 else -3
+        parts.append(
+            f'<text x="{x_ref+offset:.1f}" y="{y_top+10}" fill="#F59E0B" '
+            f'font-size="8" font-weight="500" text-anchor="{anchor}">{label_ref}</text>'
+        )
 
     # ── Dibujar tramos por ítem ──────────────────────────────────────────
 
