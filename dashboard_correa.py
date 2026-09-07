@@ -1970,7 +1970,12 @@ renderBars('grupos', gruposArr);
             "operador":    "Operador",
         }
         df_view = df_tabla[[c for c in cols_show if c in df_tabla.columns]].rename(columns=cols_show)
-        df_view = df_view.sort_values("Fecha corte", ascending=False)
+        # Ordenar por fecha real (no por el string formateado dd-mm-yyyy que ordena mal)
+        df_view = df_view.sort_values(
+            by="Fecha corte",
+            ascending=False,
+            key=lambda col: pd.to_datetime(col, format="%d-%m-%Y", errors="coerce")
+        )
         st.dataframe(df_view, use_container_width=True, hide_index=True)
 
         st.markdown("<div style='height:14px'></div>", unsafe_allow_html=True)
