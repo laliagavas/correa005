@@ -825,8 +825,10 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
-ftab05, ftab06, ftab07, ftab_pdf, ftab_esquema, ftab_cv005_detalle, ftab_cortes = st.tabs(
-    ["➕ CV005", "➕ CV006", "➕ CV007", "📄 Reporte PDF", "🔧 Esquema de correas", "📊 Detalle CV005", "📈 Análisis de cortes"]
+ftab05, ftab06, ftab07, ftab_pdf, ftab_esquema, ftab_cv005_detalle, ftab_cortes, ftab_termo05, ftab_termo06, ftab_termo07 = st.tabs(
+    ["➕ CV005", "➕ CV006", "➕ CV007", "📄 Reporte PDF", "🔧 Esquema de correas",
+     "📊 Detalle CV005", "📈 Análisis de cortes",
+     "🌡️ Termografías CV005", "🌡️ Termografías CV006", "🌡️ Termografías CV007"]
 )
 
 # ── CV005 ─────────────────────────────────────────────────────
@@ -2020,3 +2022,261 @@ renderBars('grupos', gruposArr);
                         st.rerun()
                     except Exception as e:
                         st.error(f"Error al guardar: {e}")
+
+# ============================================================
+# FUNCIONES TERMOGRAFÍAS
+# ============================================================
+
+def leer_termografias(correa_id: str) -> pd.DataFrame:
+    try:
+        resp = supabase.table("termografias_polines") \
+            .select("*").eq("correa_id", correa_id).execute()
+        df = pd.DataFrame(resp.data)
+        if not df.empty:
+            df["fecha"] = pd.to_datetime(df["fecha"], errors="coerce")
+            df["temperatura"] = pd.to_numeric(df["temperatura"], errors="coerce")
+        return df
+    except Exception as e:
+        st.warning(f"Error leyendo termografías {correa_id}: {e}")
+        return pd.DataFrame()
+
+
+def guardar_termografia(correa_id, fecha, hora, temperatura, ubicacion, operador, nota) -> bool:
+    try:
+        supabase.table("termografias_polines").insert({
+            "correa_id":   correa_id,
+            "fecha":       str(fecha),
+            "hora":        hora,
+            "temperatura": float(temperatura),
+            "ubicacion":   ubicacion,
+            "operador":    operador,
+            "nota":        nota,
+        }).execute()
+        return True
+    except Exception as e:
+        st.error(f"Error al guardar: {e}")
+        return False
+
+
+def render_termografia_tab(tab, correa_id):
+    with tab:
+        st.markdown(f"""
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;padding:0 0 14px">
+          <div>
+            <div style="font-size:10px;text-transform:uppercase;letter-spacing:1.5px;
+                        color:rgba(255,255,255,0.3);margin-bottom:4px">Termografías de polines</div>
+            <div style="font-size:17px;font-weight:500;color:#F0F2F5">{correa_id} — Registro de temperaturas</div>
+          </div>
+        </div>
+        """, unsafe_allow_html=True)
+
+        df_t = leer_termografias(correa_id)
+
+        if df_t.empty:
+            st.info("Sin registros. Ejecuta el SQL inicial en Supabase.")
+            render_form_termografia(correa_id)
+            return
+
+        # ── Filtros ─────────────────────────────────────────────────────
+        fc1, fc2, fc3 = st.columns(3)
+        with fc1:
+            solo_alerta = st.checkbox("🔴 Solo temperaturas > 100°C",
+                                       key=f"alerta_{correa_id}", value=False)
+        with fc2:
+            if not df_t["fecha"].isna().all():
+                f_min = df_t["fecha"].min().date()
+                f_max = df_t["fecha"].max().date()
+                fecha_rango = st.date_input("Rango de fechas",
+                    value=(f_min, f_max), key=f"frango_{correa_id}")
+            else:
+                fecha_rango = None
+        with fc3:
+            umbral = st.number_input("Umbral de alerta (°C)",
+                min_value=0, max_value=1000, value=100,
+                step=1, key=f"umbral_{correa_id}")
+
+        # Aplicar filtros
+        df_f = df_t.copy()
+        if solo_alerta:
+            df_f = df_f[df_f["temperatura"] >= umbral]
+        if fecha_rango and len(fecha_rango) == 2:
+            df_f = df_f[
+                (df_f["fecha"].dt.date >= fecha_rango[0]) &
+                (df_f["fecha"].dt.date <= fecha_rango[1])
+            ]
+
+        st.markdown("<div style='height:6px'></div>", unsafe_allow_html=True)
+
+        # ── KPIs ────────────────────────────────────────────────────────
+        k1, k2, k3, k4 = st.columns(4)
+        n_total   = len(df_f)
+        n_alertas = len(df_f[df_f["temperatura"] >= umbral])
+        t_max     = df_f["temperatura"].max() if n_total > 0 else 0
+        t_prom    = df_f["temperatura"].mean() if n_total > 0 else 0
+        ub_max    = df_f.loc[df_f["temperatura"].idxmax(), "ubicacion"] if n_total > 0 else "—"
+
+        with k1:
+            st.markdown(kpi("Registros totales", str(n_total),
+                f"En el rango seleccionado", "#378ADD"), unsafe_allow_html=True)
+        with k2:
+            st.markdown(kpi(f"Alertas > {umbral}°C", str(n_alertas),
+                f"{n_alertas/n_total*100:.1f}% del total" if n_total > 0 else "—",
+                "#E24B4A"), unsafe_allow_html=True)
+        with k3:
+            st.markdown(kpi("Temperatura máxima", f"{t_max:.0f}°C",
+                f"En {ub_max}", "#F59E0B"), unsafe_allow_html=True)
+        with k4:
+            st.markdown(kpi("Temperatura promedio", f"{t_prom:.1f}°C",
+                "Promedio general del período", "#34D399"), unsafe_allow_html=True)
+
+        st.markdown("<div style='height:10px'></div>", unsafe_allow_html=True)
+
+        # ── Gráfico temperatura por fecha ────────────────────────────────
+        if n_total > 0:
+            st.markdown("""
+            <div style="font-size:11px;font-weight:500;color:rgba(255,255,255,0.4);
+                        text-transform:uppercase;letter-spacing:1px;margin-bottom:8px">
+              Temperatura por fecha
+            </div>""", unsafe_allow_html=True)
+
+            import json as _json
+            df_plot = df_f[["fecha","temperatura","ubicacion"]].copy()
+            df_plot["fecha_str"] = df_plot["fecha"].dt.strftime("%d-%m-%Y")
+            df_plot["temperatura"] = df_plot["temperatura"].round(1)
+
+            # Agrupar por fecha: máxima, promedio, cantidad
+            df_g = df_plot.groupby("fecha_str").agg(
+                t_max=("temperatura","max"),
+                t_prom=("temperatura","mean"),
+                n=("temperatura","count")
+            ).reset_index().sort_values("fecha_str",
+                key=lambda c: pd.to_datetime(c, format="%d-%m-%Y", errors="coerce"))
+
+            data_json = df_g.to_dict(orient="records")
+            umbral_val = int(umbral)
+
+            html_chart = f"""<!DOCTYPE html><html><head>
+<style>
+* {{box-sizing:border-box;margin:0;padding:0;font-family:'Inter',sans-serif;}}
+body {{background:#0D1117;color:#F0F2F5;padding:8px;}}
+.wrap {{background:#161B22;border:0.5px solid rgba(255,255,255,0.08);border-radius:10px;padding:14px;}}
+canvas {{width:100%!important;}}
+</style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+</head><body>
+<div class="wrap"><canvas id="c" height="120"></canvas></div>
+<script>
+const data = {_json.dumps(data_json)};
+const labels = data.map(d=>d.fecha_str);
+const tmax   = data.map(d=>d.t_max);
+const tprom  = data.map(d=>parseFloat(d.t_prom.toFixed(1)));
+const umbral = {umbral_val};
+
+new Chart(document.getElementById('c'), {{
+  type: 'line',
+  data: {{
+    labels,
+    datasets: [
+      {{ label:'Temp. máxima', data:tmax,
+         borderColor:'#E24B4A', backgroundColor:'rgba(226,75,74,0.1)',
+         borderWidth:2, pointRadius:3, tension:0.3, fill:false }},
+      {{ label:'Temp. promedio', data:tprom,
+         borderColor:'#378ADD', backgroundColor:'rgba(55,138,221,0.1)',
+         borderWidth:2, pointRadius:3, tension:0.3, fill:false }},
+      {{ label:`Umbral {umbral_val}°C`, data:labels.map(()=>umbral),
+         borderColor:'#F59E0B', borderWidth:1.5,
+         borderDash:[6,4], pointRadius:0, fill:false }},
+    ]
+  }},
+  options: {{
+    responsive:true,
+    plugins: {{
+      legend: {{ labels: {{ color:'#9CA3AF', font:{{size:11}} }} }},
+      tooltip: {{ backgroundColor:'#1F2937', titleColor:'#F0F2F5', bodyColor:'#9CA3AF' }}
+    }},
+    scales: {{
+      x: {{ ticks:{{ color:'#6B7280', maxRotation:45, font:{{size:9}} }},
+            grid:{{ color:'rgba(255,255,255,0.04)' }} }},
+      y: {{ ticks:{{ color:'#6B7280', callback:v=>v+'°C', font:{{size:10}} }},
+            grid:{{ color:'rgba(255,255,255,0.04)' }} }}
+    }}
+  }}
+}});
+</script></body></html>"""
+
+            st.components.v1.html(html_chart, height=280, scrolling=False)
+
+        st.markdown("<div style='height:10px'></div>", unsafe_allow_html=True)
+
+        # ── Tabla detalle ────────────────────────────────────────────────
+        st.markdown("""
+        <div style="font-size:11px;font-weight:500;color:rgba(255,255,255,0.4);
+                    text-transform:uppercase;letter-spacing:1px;margin-bottom:8px">
+          Registros detallados
+        </div>""", unsafe_allow_html=True)
+
+        df_view = df_f[["fecha","hora","temperatura","ubicacion","operador","nota"]].copy()
+        df_view["Fecha"]       = df_f["fecha"].dt.strftime("%d-%m-%Y")
+        df_view["Hora"]        = df_f["hora"].fillna("—")
+        df_view["Temp. (°C)"]  = df_f["temperatura"]
+        df_view["Ubicación"]   = df_f["ubicacion"].fillna("—")
+        df_view["Operador"]    = df_f["operador"].fillna("—") if "operador" in df_f.columns else "—"
+        df_view["Nota"]        = df_f["nota"].fillna("") if "nota" in df_f.columns else ""
+        df_view["⚠"]           = df_f["temperatura"].apply(
+            lambda t: "🔴" if t >= umbral else "")
+
+        df_show = df_view[["⚠","Fecha","Hora","Temp. (°C)","Ubicación","Operador","Nota"]] \
+            .sort_values("Fecha", ascending=False,
+                         key=lambda c: pd.to_datetime(c, format="%d-%m-%Y", errors="coerce"))
+        st.dataframe(df_show, use_container_width=True, hide_index=True)
+
+        st.markdown("<div style='height:10px'></div>", unsafe_allow_html=True)
+
+        # ── Formulario ingreso ───────────────────────────────────────────
+        render_form_termografia(correa_id)
+
+
+def render_form_termografia(correa_id):
+    st.markdown("""
+    <div style="font-size:11px;font-weight:500;color:rgba(255,255,255,0.4);
+                text-transform:uppercase;letter-spacing:1px;margin-bottom:8px">
+      Registrar nueva medición
+    </div>""", unsafe_allow_html=True)
+
+    with st.form(key=f"form_termo_{correa_id}"):
+        t1, t2, t3 = st.columns(3)
+        with t1:
+            t_fecha = st.date_input("Fecha", key=f"t_fecha_{correa_id}")
+            t_hora  = st.text_input("Hora", key=f"t_hora_{correa_id}",
+                                     placeholder="Ej: 11:30")
+        with t2:
+            t_temp  = st.number_input("Temperatura (°C)", min_value=0.0,
+                                       max_value=1000.0, value=0.0, step=0.1,
+                                       key=f"t_temp_{correa_id}", format="%.1f")
+            t_ubic  = st.text_input("Ubicación", key=f"t_ubic_{correa_id}",
+                                     placeholder="Ej: Cc2523")
+        with t3:
+            t_op    = st.text_input("Operador", key=f"t_op_{correa_id}",
+                                     placeholder="Nombre")
+            t_nota  = st.text_input("Nota", key=f"t_nota_{correa_id}",
+                                     placeholder="Opcional")
+
+        alerta_txt = " 🔴 Temperatura sobre umbral" if t_temp >= 100 else ""
+        if t_temp > 0:
+            st.caption(f"📊 {t_temp:.1f}°C en {t_ubic or '?'}{alerta_txt}")
+
+        if st.form_submit_button(f"💾 Guardar medición {correa_id}"):
+            if not t_op.strip():
+                st.error("Ingresa el operador.")
+            elif t_temp <= 0:
+                st.error("Ingresa una temperatura válida.")
+            elif guardar_termografia(correa_id, t_fecha, t_hora, t_temp,
+                                      t_ubic, t_op.strip(), t_nota):
+                st.success(f"✅ Medición guardada — {correa_id} · {t_temp:.1f}°C · {t_ubic}")
+                st.rerun()
+
+
+# ── Renderizar las 3 pestañas ────────────────────────────────────────────
+render_termografia_tab(ftab_termo05, "CV005")
+render_termografia_tab(ftab_termo06, "CV006")
+render_termografia_tab(ftab_termo07, "CV007")
