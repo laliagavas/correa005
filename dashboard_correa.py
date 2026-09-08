@@ -2197,7 +2197,8 @@ new Chart(document.getElementById('c'), {{
     scales: {{
       x: {{ ticks:{{ color:'#6B7280', maxRotation:45, font:{{size:9}} }},
             grid:{{ color:'rgba(255,255,255,0.04)' }} }},
-      y: {{ ticks:{{ color:'#6B7280', callback:v=>v+'°C', font:{{size:10}} }},
+      y: {{ min: 0,
+            ticks:{{ color:'#6B7280', callback:v=>v+'°C', font:{{size:10}} }},
             grid:{{ color:'rgba(255,255,255,0.04)' }} }}
     }}
   }}
