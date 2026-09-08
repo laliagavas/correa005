@@ -2158,13 +2158,13 @@ def render_termografia_tab(tab, correa_id):
             html_chart = f"""<!DOCTYPE html><html><head>
 <style>
 * {{box-sizing:border-box;margin:0;padding:0;font-family:'Inter',sans-serif;}}
-body {{background:#0D1117;color:#F0F2F5;padding:8px;}}
-.wrap {{background:#161B22;border:0.5px solid rgba(255,255,255,0.08);border-radius:10px;padding:14px;}}
-canvas {{width:100%!important;}}
+body {{background:#0D1117;color:#F0F2F5;padding:6px;overflow:hidden;}}
+.wrap {{background:#161B22;border:0.5px solid rgba(255,255,255,0.08);border-radius:10px;padding:12px;height:230px;}}
+#c {{width:100%!important;height:206px!important;}}
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
 </head><body>
-<div class="wrap"><canvas id="c" height="120"></canvas></div>
+<div class="wrap"><canvas id="c"></canvas></div>
 <script>
 const data = {_json.dumps(data_json)};
 const labels = data.map(d=>d.fecha_str);
@@ -2190,6 +2190,7 @@ new Chart(document.getElementById('c'), {{
   }},
   options: {{
     responsive:true,
+    maintainAspectRatio: false,
     plugins: {{
       legend: {{ labels: {{ color:'#9CA3AF', font:{{size:11}} }} }},
       tooltip: {{ backgroundColor:'#1F2937', titleColor:'#F0F2F5', bodyColor:'#9CA3AF' }}
@@ -2205,7 +2206,7 @@ new Chart(document.getElementById('c'), {{
 }});
 </script></body></html>"""
 
-            st.components.v1.html(html_chart, height=280, scrolling=False)
+            st.components.v1.html(html_chart, height=255, scrolling=False)
 
         st.markdown("<div style='height:10px'></div>", unsafe_allow_html=True)
 
