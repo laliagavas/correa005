@@ -2232,6 +2232,16 @@ new Chart(document.getElementById('c'), {{
                          key=lambda c: pd.to_datetime(c, format="%d-%m-%Y", errors="coerce"))
         st.dataframe(df_show, use_container_width=True, hide_index=True)
 
+        # Botón descarga CSV
+        csv_data = df_show.to_csv(index=False).encode("utf-8")
+        st.download_button(
+            label="⬇️ Descargar CSV",
+            data=csv_data,
+            file_name=f"termografias_{correa_id}_{pd.Timestamp.now().strftime('%Y%m%d')}.csv",
+            mime="text/csv",
+            key=f"dl_csv_{correa_id}",
+        )
+
         st.markdown("<div style='height:10px'></div>", unsafe_allow_html=True)
 
         # ── Formulario ingreso ───────────────────────────────────────────
