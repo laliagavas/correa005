@@ -14,6 +14,59 @@ st.set_page_config(
 )
 
 # ============================================================
+# LOGIN
+# ============================================================
+def check_login():
+    """Valida credenciales contra st.secrets."""
+    user_ok = st.session_state.get("login_user","") == st.secrets["LOGIN_USER"]
+    pass_ok = st.session_state.get("login_pass","") == st.secrets["LOGIN_PASS"]
+    if user_ok and pass_ok:
+        st.session_state["autenticado"] = True
+    else:
+        st.session_state["autenticado"] = False
+        st.error("Usuario o contraseña incorrectos.")
+
+def pantalla_login():
+    """Muestra el formulario de login."""
+    st.markdown("""
+    <style>
+    .stAppHeader { display: none !important; }
+    [data-testid="stMainBlockContainer"] {
+        max-width: 420px !important;
+        padding-top: 8rem !important;
+        margin: 0 auto !important;
+    }
+    [data-testid="stAppViewContainer"] { background-color: #0D1117; }
+    </style>
+    """, unsafe_allow_html=True)
+
+    st.markdown("""
+    <div style="text-align:center;margin-bottom:32px">
+      <div style="font-size:28px;margin-bottom:8px">🔴</div>
+      <div style="font-size:18px;font-weight:500;color:#F0F2F5">
+        Sistema de Monitoreo de Polines
+      </div>
+      <div style="font-size:12px;color:rgba(255,255,255,0.4);margin-top:4px">
+        Fibra Óptica — Los Pelambres
+      </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    with st.form(key="form_login"):
+        st.text_input("Usuario", key="login_user", placeholder="Ingresa tu usuario")
+        st.text_input("Contraseña", key="login_pass",
+                      type="password", placeholder="Ingresa tu contraseña")
+        st.form_submit_button("Ingresar", on_click=check_login)
+
+# Verificar si ya está autenticado
+if "autenticado" not in st.session_state:
+    st.session_state["autenticado"] = False
+
+if not st.session_state["autenticado"]:
+    pantalla_login()
+    st.stop()
+
+# ============================================================
 # CONSTANTES
 # ============================================================
 FACTORES = {
@@ -1109,6 +1162,11 @@ with st.sidebar:
                   color:rgba(255,255,255,0.3);margin-bottom:3px">Panel de operación</div>
       <div style="font-size:14px;font-weight:500;color:#F0F2F5">Estado general</div>
     </div>""", unsafe_allow_html=True)
+
+    # Botón cerrar sesión
+    if st.button("🔒 Cerrar sesión", key="logout"):
+        st.session_state["autenticado"] = False
+        st.rerun()
 
     for cid, pct_val in [("CV005", met_05["pct_s"]), ("CV006", met_06["pct_s"]), ("CV007", 100.0)]:
         color_bar = "#639922" if pct_val >= 100 else "#7F77DD"
