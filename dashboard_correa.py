@@ -70,7 +70,7 @@ if not st.session_state["autenticado"]:
 # CONSTANTES
 # ============================================================
 FACTORES = {
-    "CV005": {"troncal": 1.547, "sensitiva": 10.83},
+    "CV005": {"troncal": 1.547, "sensitiva": 12.50},
     "CV006": {"troncal": 1.665, "sensitiva": 13.66},
     "CV007": {"troncal": 1.595, "sensitiva": 17.36},
 }
