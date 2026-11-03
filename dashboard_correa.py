@@ -70,7 +70,7 @@ if not st.session_state["autenticado"]:
 # CONSTANTES
 # ============================================================
 FACTORES = {
-    "CV005": {"troncal": 1.547, "sensitiva": 10.83},
+    "CV005": {"troncal": 1.547, "sensitiva": 12.5},   # sensitiva actualizada: antes 10.83 m/est
     "CV006": {"troncal": 1.665, "sensitiva": 13.66},
     "CV007": {"troncal": 1.595, "sensitiva": 17.36},
 }
@@ -79,7 +79,13 @@ EST_RANGES = {
     "CV006": {"min": -3,  "max": 3526},
     "CV007": {"min": 3,   "max": 842},
 }
-SENSITIVA_TOTAL_MTS = {"CV005": 41402.0, "CV006": 48214.0, "CV007": 14568.0}
+# CV005: la cantidad de estaciones se mantiene (3823); el total de metros
+# se recalcula con el nuevo factor → 3823 est × 12.5 m/est = 47.787,5 m
+SENSITIVA_TOTAL_MTS = {
+    "CV005": round(EST_RANGES["CV005"]["max"] * FACTORES["CV005"]["sensitiva"], 1),
+    "CV006": 48214.0,
+    "CV007": 14568.0,
+}
 TRONCAL_TOTAL_MTS   = {"CV005": 5916.0,  "CV006": 5876.0,  "CV007": 1339.0}
 MAPEO_NUM_A_LETRA   = {-3: "3B Carga", -2: "2B Carga", -1: "1B Carga"}
 NIVELES             = {0: "Troncal", 5: "Sensitiva"}
@@ -960,14 +966,14 @@ with ftab05:
                 st.success(f"✅ Guardado — {ITEMS_AVANCE_FISICO[af_item]['label']}")
                 st.rerun()
     with col_info:
-        st.markdown("""
+        st.markdown(f"""
         <div style="background:rgba(255,255,255,0.03);border:0.5px solid rgba(255,255,255,0.07);
                     border-radius:10px;padding:14px 16px;margin-top:2px">
           <div style="font-size:10px;text-transform:uppercase;letter-spacing:.8px;
                       color:rgba(255,255,255,0.35);margin-bottom:10px">Referencia CV005</div>
           <div style="font-size:11px;color:rgba(255,255,255,0.5);line-height:1.8">
-            <span style="color:#E24B4A">●</span> Troncal: 1.547 m/est<br>
-            <span style="color:#7F77DD">●</span> Sensitiva: 10.83 m/est<br><br>
+            <span style="color:#E24B4A">●</span> Troncal: {FACTORES["CV005"]["troncal"]:.3f} m/est<br>
+            <span style="color:#7F77DD">●</span> Sensitiva: {FACTORES["CV005"]["sensitiva"]:.2f} m/est<br><br>
             <span style="color:rgba(255,255,255,0.3)">Frente TP1</span><br>
             Est. 3823 → 2000 (decrece)<br><br>
             <span style="color:rgba(255,255,255,0.3)">Frente EM</span><br>
