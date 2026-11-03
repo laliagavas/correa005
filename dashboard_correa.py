@@ -70,7 +70,7 @@ if not st.session_state["autenticado"]:
 # CONSTANTES
 # ============================================================
 FACTORES = {
-    "CV005": {"troncal": 1.547, "sensitiva": 12.5},   # sensitiva actualizada: antes 10.83 m/est
+    "CV005": {"troncal": 1.547, "sensitiva": 12.0},   # sensitiva actualizada: antes 10.83 m/est
     "CV006": {"troncal": 1.665, "sensitiva": 13.66},
     "CV007": {"troncal": 1.595, "sensitiva": 17.36},
 }
@@ -80,7 +80,7 @@ EST_RANGES = {
     "CV007": {"min": 3,   "max": 842},
 }
 # CV005: la cantidad de estaciones se mantiene (3823); el total de metros
-# se recalcula con el nuevo factor → 3823 est × 12.5 m/est = 47.787,5 m
+# se recalcula con el nuevo factor → 3823 est × 12 m/est = 45.876 m
 SENSITIVA_TOTAL_MTS = {
     "CV005": round(EST_RANGES["CV005"]["max"] * FACTORES["CV005"]["sensitiva"], 1),
     "CV006": 48214.0,
