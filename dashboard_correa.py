@@ -70,7 +70,7 @@ if not st.session_state["autenticado"]:
 # CONSTANTES
 # ============================================================
 FACTORES = {
-    "CV005": {"troncal": 1.547, "sensitiva": 12.0},   # sensitiva actualizada: antes 10.83 m/est
+    "CV005": {"troncal": 1.547, "sensitiva": 12.873},  # calibrado: 200 m = Est. 3823, 8117 m = Est. 3208 (antes 10.83)
     "CV006": {"troncal": 1.665, "sensitiva": 13.66},
     "CV007": {"troncal": 1.595, "sensitiva": 17.36},
 }
@@ -80,7 +80,7 @@ EST_RANGES = {
     "CV007": {"min": 3,   "max": 842},
 }
 # CV005: la cantidad de estaciones se mantiene (3823); el total de metros
-# se recalcula con el nuevo factor → 3823 est × 12 m/est = 45.876 m
+# se recalcula con el nuevo factor → 3823 est × 12.873 m/est ≈ 49.213 m
 SENSITIVA_TOTAL_MTS = {
     "CV005": round(EST_RANGES["CV005"]["max"] * FACTORES["CV005"]["sensitiva"], 1),
     "CV006": 48214.0,
@@ -105,7 +105,7 @@ TIPOS_AVANCE_FISICO = ["Avance", "Corrección", "Otro"]
 # Metros de cabecera (DTS → primera estación) que se suman fijos al metraje
 # No dependen del avance registrado — son metros físicos siempre presentes
 OFFSET_METROS = {
-    "CV005": {"tp1": 122.0, "em": 0.0},   # 122 m desde DTS hasta Est. 3823
+    "CV005": {"tp1": 200.0, "em": 0.0},   # 200 m desde DTS hasta Est. 3823 (antes 122 m)
     "CV006": {"tp1": 0.0,   "tp2": 0.0},
     "CV007": {"unico": 0.0},
 }
@@ -304,7 +304,7 @@ def calcular_metraje(df, correa_id):
         offset = OFFSET_METROS.get(correa_id, {}).get(frente, 0.0)
 
         # Sensitiva: metros de estaciones recorridas + offset de cabecera DTS.
-        # Los 122 m son fibra real desplegada (cuentan en el total),
+        # Los 200 m son fibra real desplegada (cuentan en el total),
         # solo afectan la conversión metro→estación en la calculadora.
         d, h = obtener_tramo_activo(df, 5, frente)
         if d is not None:
@@ -991,7 +991,7 @@ with ftab05:
         c05_orig    = {"TP1 (origen Est. 3823)":(3823,-1),"EM (origen Est. 1)":(1,1)}[c05_frente]
         c05_offset  = OFFSET_METROS["CV005"]["tp1"] if "TP1" in c05_frente else 0.0
 
-        # Para TP1: SmartVision parte en 122 m → descontamos el offset antes de convertir a estaciones
+        # Para TP1: SmartVision parte en 200 m → descontamos el offset antes de convertir a estaciones
         c05_metros_netos = max(c05_metros - c05_offset, 0.0)  # descuenta cabecera DTS
 
         if c05_metros >= c05_offset or c05_metros == 0:
