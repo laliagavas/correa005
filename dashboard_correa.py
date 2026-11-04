@@ -105,7 +105,7 @@ TIPOS_AVANCE_FISICO = ["Avance", "Corrección", "Otro"]
 # Metros de cabecera (DTS → primera estación) que se suman fijos al metraje
 # No dependen del avance registrado — son metros físicos siempre presentes
 OFFSET_METROS = {
-    "CV005": {"tp1": 200.0, "em": 0.0},   # 200 m desde DTS hasta Est. 3823 (antes 122 m)
+    "CV005": {"tp1": 200.0, "em": 113.0},  # TP1: 200 m DTS → Est. 3823 · EM: 113 m DTS → Est. 1
     "CV006": {"tp1": 0.0,   "tp2": 0.0},
     "CV007": {"unico": 0.0},
 }
@@ -989,9 +989,10 @@ with ftab05:
         c05_metros  = st.number_input("Metros SmartVision", min_value=0.0, value=0.0, step=1.0, key="c05_metros", format="%.1f")
         c05_factor  = FACTORES["CV005"]["troncal"] if c05_fibra==0 else FACTORES["CV005"]["sensitiva"]
         c05_orig    = {"TP1 (origen Est. 3823)":(3823,-1),"EM (origen Est. 1)":(1,1)}[c05_frente]
-        c05_offset  = OFFSET_METROS["CV005"]["tp1"] if "TP1" in c05_frente else 0.0
+        c05_offset  = OFFSET_METROS["CV005"]["tp1"] if "TP1" in c05_frente else OFFSET_METROS["CV005"]["em"]
+        c05_est_ini = 3823 if "TP1" in c05_frente else 1
 
-        # Para TP1: SmartVision parte en 200 m → descontamos el offset antes de convertir a estaciones
+        # TP1 parte en 200 m y EM en 113 m → descontamos la cabecera DTS antes de convertir a estaciones
         c05_metros_netos = max(c05_metros - c05_offset, 0.0)  # descuenta cabecera DTS
 
         if c05_metros >= c05_offset or c05_metros == 0:
@@ -1009,7 +1010,7 @@ with ftab05:
             st.markdown(f"""<div style="background:rgba(245,158,11,0.08);border:0.5px solid rgba(245,158,11,0.3);
                         border-radius:8px;padding:10px 12px;margin-top:4px;
                         font-size:11px;color:#F59E0B">
-              ⚠ Los primeros {c05_offset:.0f} m corresponden a la cabecera DTS (antes de Est. 3823)
+              ⚠ Los primeros {c05_offset:.0f} m corresponden a la cabecera DTS (antes de Est. {c05_est_ini})
             </div>""", unsafe_allow_html=True)
 
 # ── CV006 ─────────────────────────────────────────────────────
