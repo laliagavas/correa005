@@ -74,15 +74,25 @@ FACTORES = {
     "CV006": {"troncal": 1.665, "sensitiva": 13.66},
     "CV007": {"troncal": 1.595, "sensitiva": 17.36},
 }
+# Factor sensitiva por frente (calibrado con SmartVision). Si un frente no
+# aparece aquí, se usa FACTORES[correa]["sensitiva"].
+#   TP1: 200 m = Est. 3823 · 8117 m = Est. 3208 → (8117-200)/615 = 12.873
+#   EM : 113 m = Est. 1    · 7594 m = Est. 600  → (7594-113)/599 = 12.489
+FACTORES_SENS_FRENTE = {
+    "CV005": {"tp1": 12.873, "em": 12.489},
+}
+
+def factor_sens(correa_id, frente=None):
+    return FACTORES_SENS_FRENTE.get(correa_id, {}).get(frente, FACTORES[correa_id]["sensitiva"])
+
 EST_RANGES = {
     "CV005": {"min": 1,   "max": 3823},
     "CV006": {"min": -3,  "max": 3526},
     "CV007": {"min": 3,   "max": 842},
 }
-# CV005: la cantidad de estaciones se mantiene (3823); el total de metros
-# se recalcula con el nuevo factor → 3823 est × 12.873 m/est ≈ 49.213 m
+# CV005: total = cabecera TP1 + tramo TP1 (3823→2000) + cabecera EM + tramo EM (1→2000)
 SENSITIVA_TOTAL_MTS = {
-    "CV005": round(EST_RANGES["CV005"]["max"] * FACTORES["CV005"]["sensitiva"], 1),
+    "CV005": round(200.0 + (3823 - 2000) * 12.873 + 113.0 + (2000 - 1) * 12.489, 1),  # ≈ 48.746 m
     "CV006": 48214.0,
     "CV007": 14568.0,
 }
@@ -253,7 +263,7 @@ def analizar_estado_frente(df, nivel, frente, correa_id):
     if "created_at" in sub.columns:
         sub = sub.sort_values("created_at", ascending=False)
 
-    factor = FACTORES[correa_id]["troncal"] if nivel == 0 else FACTORES[correa_id]["sensitiva"]
+    factor = FACTORES[correa_id]["troncal"] if nivel == 0 else factor_sens(correa_id, frente)
     offset = OFFSET_METROS.get(correa_id, {}).get(frente, 0.0)
 
     actual   = sub.iloc[0]
@@ -308,7 +318,7 @@ def calcular_metraje(df, correa_id):
         # solo afectan la conversión metro→estación en la calculadora.
         d, h = obtener_tramo_activo(df, 5, frente)
         if d is not None:
-            metros_s += abs(h - d) * fs + offset
+            metros_s += abs(h - d) * factor_sens(correa_id, frente) + offset
 
         # Troncal
         sub_t = df[df["nivel"].astype(int) == 0].copy() if not df.empty else df
@@ -920,7 +930,7 @@ with ftab05:
                     min_value=1, max_value=3823,
                     value=2000,
                     step=1, key="h05", format="%d")
-            fac_05 = FACTORES["CV005"]["troncal"] if niv_05 == 0 else FACTORES["CV005"]["sensitiva"]
+            fac_05 = FACTORES["CV005"]["troncal"] if niv_05 == 0 else factor_sens("CV005", fk_05)
             st.caption(f"📏 {abs(int(h_05)-int(d_05))} est × {fac_05:.3f} m/est = **{abs(int(h_05)-int(d_05))*fac_05:,.1f} m**")
             nota_05 = st.text_input("Observación", key="nota_CV005", placeholder="Opcional")
             if st.form_submit_button("💾 Guardar registro CV005"):
@@ -973,7 +983,8 @@ with ftab05:
                       color:rgba(255,255,255,0.35);margin-bottom:10px">Referencia CV005</div>
           <div style="font-size:11px;color:rgba(255,255,255,0.5);line-height:1.8">
             <span style="color:#E24B4A">●</span> Troncal: {FACTORES["CV005"]["troncal"]:.3f} m/est<br>
-            <span style="color:#7F77DD">●</span> Sensitiva: {FACTORES["CV005"]["sensitiva"]:.2f} m/est<br><br>
+            <span style="color:#7F77DD">●</span> Sensitiva TP1: {factor_sens("CV005","tp1"):.3f} m/est<br>
+            <span style="color:#7F77DD">●</span> Sensitiva EM: {factor_sens("CV005","em"):.3f} m/est<br><br>
             <span style="color:rgba(255,255,255,0.3)">Frente TP1</span><br>
             Est. 3823 → 2000 (decrece)<br><br>
             <span style="color:rgba(255,255,255,0.3)">Frente EM</span><br>
@@ -987,7 +998,7 @@ with ftab05:
         c05_fibra   = st.selectbox("Tipo de fibra", [0,5], format_func=lambda x:"Troncal" if x==0 else "Sensitiva", key="c05_fibra")
         c05_frente  = st.selectbox("Frente", ["TP1 (origen Est. 3823)","EM (origen Est. 1)"], key="c05_frente")
         c05_metros  = st.number_input("Metros SmartVision", min_value=0.0, value=0.0, step=1.0, key="c05_metros", format="%.1f")
-        c05_factor  = FACTORES["CV005"]["troncal"] if c05_fibra==0 else FACTORES["CV005"]["sensitiva"]
+        c05_factor  = FACTORES["CV005"]["troncal"] if c05_fibra==0 else factor_sens("CV005", "tp1" if "TP1" in c05_frente else "em")
         c05_orig    = {"TP1 (origen Est. 3823)":(3823,-1),"EM (origen Est. 1)":(1,1)}[c05_frente]
         c05_offset  = OFFSET_METROS["CV005"]["tp1"] if "TP1" in c05_frente else OFFSET_METROS["CV005"]["em"]
         c05_est_ini = 3823 if "TP1" in c05_frente else 1
@@ -1728,7 +1739,7 @@ with ftab_cv005_detalle:
         ("sensitiva_fo", "Fibra Óptica Sensitiva", "#7F77DD",
          met_05["metros_s"], met_05["total_s"] / FACTORES["CV005"]["sensitiva"],
          pct_s_05,
-         f"{met_05['metros_s']:,.0f} m · {met_05['total_s']:,.0f} m totales · {FACTORES['CV005']['sensitiva']:.2f} m/est"),
+         f"{met_05['metros_s']:,.0f} m · {met_05['total_s']:,.0f} m totales · TP1 {factor_sens('CV005','tp1'):.2f} · EM {factor_sens('CV005','em'):.2f} m/est"),
     ]
     for ik, iv in ITEMS_AVANCE_FISICO.items():
         datos = av_fis.get(ik, {"est": 0, "pct": 0.0})
